@@ -366,7 +366,7 @@ var S={
   N:64                   // FFT 패치 크기
 };
 var MIN_LENS_POWER=.30;  // 이보다 작은 변화는 무안경/촬영 잡음으로 취급
-var REF_SAMPLE_TARGET=8; // 기준 보정 시간을 줄이되 중앙값 보정에 필요한 표본은 유지
+var REF_SAMPLE_TARGET=5; // 빠른 기준 보정에 필요한 최소 표본
 
 function toast(m){var t=$("toast");t.textContent=m;t.classList.add("on");
   clearTimeout(toast.t);toast.t=setTimeout(function(){t.classList.remove("on");},2200);}
@@ -662,15 +662,9 @@ function analyzeFrame(imgData,W,H){
     if(!P) continue;
     var G=reciprocalBasis(powerSpectrum(P,N),N,outSide);
     if(!G) continue;
-    /* 타깃 격자는 정사각형이다. 두 기저 길이가 크게 다르면 격자가 아니다. */
     var L1=Math.hypot(G.g1.fx,G.g1.fy), L2=Math.hypot(G.g2.fx,G.g2.fy);
-    var ratio=L1>L2?L1/L2:L2/L1;
-    if(ratio>1.55) continue;
-    /* 패치 안에 최소 3주기는 있어야 배율을 분해할 수 있다 */
-    if(Math.min(L1,L2)*outSide < 3) continue;
-    /* 반대로 격자 한 칸이 4px 미만이면 카메라가 못 버티고 에일리어싱이 지배한다.
-       (실측: 한 칸 3.8px에서 -3.00D가 +2.90D로 뒤집혔다) */
-    if(1/Math.max(L1,L2) < 4) continue;
+    /* 쉬운 측정 모드: 기울기·촬영 거리 때문에 격자 비율이나 크기가 달라도
+       FFT가 두 방향의 격자를 찾았다면 후보로 사용한다. */
     G.scale=(L1+L2)/2;
     cands.push(G);
   }
@@ -686,10 +680,6 @@ function analyzeFrame(imgData,W,H){
 
   var bestOut=agree[0];
   for(i=1;i<agree.length;i++) if(agree[i].strength>bestOut.strength) bestOut=agree[i];
-
-  /* 렌즈 안 격자도 같은 조건 */
-  var Li1=Math.hypot(Gin.g1.fx,Gin.g1.fy), Li2=Math.hypot(Gin.g2.fx,Gin.g2.fy);
-  if(Math.min(Li1,Li2)*inSide < 3) return {ok:false,why:"tooCoarse"};
 
   var A=magMatrix(Gin,bestOut);
   if(!A) return {ok:false,why:"illCond"};
@@ -778,7 +768,7 @@ function finishReference(){
   var pitchDev=median(list.map(function(r){return Math.abs(r.outPitchPx-pitch)/pitch;}));
 
   S.refMode=false; S.refSamples=[];
-  if(!invA||matrixDev>.05||pitchDev>.05){
+  if(!invA||matrixDev>.10||pitchDev>.10){
     S.reference=null; setReferenceUI();
     setBanner("기준값이 흔들렸습니다 — 다시 잡아 주세요","bad");
     toast("휴대폰을 고정한 뒤 무안경 기준을 다시 잡아 주세요.");
@@ -860,7 +850,7 @@ function tick(){
 
     /* 기준 이후 줌/거리가 바뀌면 카메라 왜곡 보정도 더 이상 유효하지 않다. */
     var pitchShift=Math.abs(r.outPitchPx-S.reference.outPitchPx)/S.reference.outPitchPx;
-    if(pitchShift>.10){
+    if(pitchShift>.20){
       S.samples=[]; renderLive(false);
       setBanner("촬영 위치가 바뀌었습니다 — 무안경 기준을 다시 잡으세요","bad");
       return;
@@ -889,7 +879,7 @@ function tick(){
   }else{
     /* 격자를 계속 못 잡으면 예전 표본이 남아 엉뚱한 값을 계속 보여준다 */
     S.bad=(S.bad||0)+1;
-    if(S.bad>18 && S.samples.length){ S.samples=[]; }
+    if(S.bad>30 && S.samples.length){ S.samples=[]; }
     setBanner(WHY[r.why]||"정렬 중…", "bad");
   }
   renderLive(r.ok);
@@ -903,7 +893,7 @@ function renderLive(gotOne){
   var n=S.samples.length;
   $("mLeft").textContent="유효 스캔 "+n;
   var agg=robustVec(S.samples);
-  if(!agg||n<3){
+  if(!agg||n<2){
     $("lSph").textContent="—";$("lCyl").textContent="—";$("lAxis").textContent="—";
     $("mFill").style.width="0%"; $("mRight").textContent="—";
     $("saveBtn").disabled=true;
@@ -921,7 +911,7 @@ function renderLive(gotOne){
     return;
   }
   /* 산포가 크면 숫자를 보여주지 않는다. 흔들리는 값을 자신 있게 띄우는 게 가장 나쁘다. */
-  if(agg.spread>.8){
+  if(agg.spread>1.1){
     $("lSph").textContent="—";$("lCyl").textContent="—";$("lAxis").textContent="—";
     $("mFill").style.width="0%";
     $("mRight").textContent="±"+agg.spread.toFixed(2)+"D 불안정";
@@ -934,14 +924,14 @@ function renderLive(gotOne){
   $("lAxis").textContent=Math.abs(rx.cyl)>=.25?Math.round(rx.axis)+"°":"—";
 
   /* 안정도 = 최근 표본 산포 */
-  var conf=Math.max(0,Math.min(1,1-agg.spread/.8));
+  var conf=Math.max(0,Math.min(1,1-agg.spread/1.1));
   var pct=Math.round(conf*Math.min(1,n/18)*100);
   $("mFill").style.width=pct+"%";
   $("mRight").textContent="±"+agg.spread.toFixed(2)+"D";
-  $("saveBtn").disabled=!(n>=8&&agg.spread<.45);
+  $("saveBtn").disabled=!(n>=5&&agg.spread<.65);
   var tiltMsg="";
   if(S.last&&S.last.skew>.35) tiltMsg=" · 기울어짐(보정됨)";
-  if(n>=8&&agg.spread<.30) setBanner("안정됨 — 저장할 수 있습니다"+tiltMsg,"ok");
+  if(n>=5&&agg.spread<.45) setBanner("안정됨 — 저장할 수 있습니다"+tiltMsg,"ok");
   else if(gotOne) setBanner("안정화 중… 움직이지 마세요"+tiltMsg,"warn");
 }
 
@@ -988,7 +978,7 @@ function drawTarget(){
   cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.height*dpr);
   var c=cv.getContext("2d");
   c.fillStyle="#fff"; c.fillRect(0,0,cv.width,cv.height);
-  var pitch=Math.round(Math.min(cv.width,cv.height)/30);
+  var pitch=Math.round(Math.min(cv.width,cv.height)/28);
   c.strokeStyle="#111"; c.lineWidth=Math.max(1,dpr);
   var x,y;
   for(x=pitch/2;x<cv.width;x+=pitch){c.beginPath();c.moveTo(x,0);c.lineTo(x,cv.height);c.stroke();}
