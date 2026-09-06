@@ -152,16 +152,50 @@
 
   <!-- 1. 거리 -->
   <div class="card">
-    <div class="fieldrow">
-      <label for="distIn">카메라 ↔ 격자 화면 거리</label>
-      <input id="distIn" type="number" min="150" max="1200" step="10" value="400"> 
+    <div class="eye-sel" style="margin-bottom:10px">
+      <button id="modeAuto" class="eye-btn" type="button">자동 거리<small>보정 필요</small></button>
+      <button id="modeMan" class="eye-btn on" type="button">수동 입력<small>줄자로 측정</small></button>
     </div>
+
+    <div id="manBox">
+      <div class="fieldrow">
+        <label for="distIn">카메라 ↔ 격자 화면 거리</label>
+        <input id="distIn" type="number" min="150" max="1200" step="10" value="400">
+      </div>
+    </div>
+
+    <div id="autoBox" class="hidden">
+      <div class="fieldrow">
+        <label>측정된 거리</label>
+        <strong id="autoDist" style="font-variant-numeric:tabular-nums">—</strong>
+      </div>
+      <p class="hint">격자의 겉보기 주기로 매 프레임 거리를 계산합니다.</p>
+    </div>
+
     <div class="fieldrow">
       <label for="posIn">안경 위치 (카메라 쪽부터 %)</label>
       <input id="posIn" type="number" min="20" max="80" step="1" value="50">
     </div>
     <p class="eqn">a=<b id="aVal">200</b>mm · b=<b id="bVal">200</b>mm · e=<b id="eVal">100.0</b>mm</p>
-    <p class="hint">e = ab/(a+b), F = (1 − 1/m)/e · 안경을 정확히 중간에 두면 거리 오차의 영향이 가장 작습니다.</p>
+
+    <details style="margin-top:10px">
+      <summary style="color:var(--muted);font-size:.8rem;cursor:pointer">자동 거리 보정 (최초 1회)</summary>
+      <p class="hint" style="margin-top:8px">
+        배율만으로는 절대 거리를 알 수 없습니다(F와 e의 곱만 정해짐).
+        카메라 초점거리를 한 번 보정하면 그 뒤로는 자동입니다.</p>
+      <div class="fieldrow">
+        <label for="pitchMm">격자 한 칸 실제 크기</label>
+        <input id="pitchMm" type="number" min="1" max="60" step="0.5" placeholder="mm">
+      </div>
+      <div class="fieldrow">
+        <label for="calDist">지금 실제 거리 (줄자)</label>
+        <input id="calDist" type="number" min="150" max="1200" step="10" placeholder="mm">
+      </div>
+      <div class="row one"><button id="calBtn" class="btn" type="button">이 상태로 보정</button></div>
+      <p class="hint" id="calState">아직 보정되지 않았습니다.</p>
+    </details>
+
+    <p class="hint">e = ab/(a+b), F = (1 − 1/m)/e · 안경을 중간(50%)에 두면 위치 오차의 영향이 최소입니다.</p>
     <div class="row one">
       <button id="tgtBtn" class="btn" type="button">격자 타깃 표시 (다른 기기에서 열기)</button>
     </div>
@@ -184,15 +218,19 @@
       <div class="guide" id="guide" aria-hidden="true">
         <svg viewBox="0 0 300 400" preserveAspectRatio="none">
           <circle id="gCircle" cx="150" cy="185" r="96" fill="none"
-                  stroke="#3b9bff" stroke-width="2.5" stroke-dasharray="7 6" opacity=".9"/>
+                  stroke="#3b9bff" stroke-width="1.1" stroke-dasharray="4 9" opacity=".38"/>
           <rect x="18" y="52" width="264" height="266" fill="none"
-                stroke="#3b9bff" stroke-width="1.2" opacity=".3"/>
-          <!-- 수평 기준선: AXIS는 이 선을 0°로 잡는다. 안경테를 여기에 맞춰야 축이 맞는다. -->
-          <line x1="10" y1="185" x2="290" y2="185"
-                stroke="#2fe0a8" stroke-width="1.6" stroke-dasharray="10 7" opacity=".85"/>
-          <text x="14" y="178" fill="#2fe0a8" font-size="11" font-weight="700"
-                font-family="-apple-system,sans-serif" opacity=".9">0° 테를 맞추세요</text>
-          <line x1="150" y1="172" x2="150" y2="198" stroke="#3b9bff" stroke-width="1.6" opacity=".7"/>
+                stroke="#3b9bff" stroke-width="0.8" opacity=".15"/>
+          <!-- 수평 기준선: AXIS는 이 선을 0°로 잡는다. 안경테를 여기에 맞춘다.
+               렌즈가 가려지지 않도록 중앙은 비우고 양끝만 표시. -->
+          <line x1="6" y1="185" x2="52" y2="185"
+                stroke="#2fe0a8" stroke-width="1.1" opacity=".55"/>
+          <line x1="248" y1="185" x2="294" y2="185"
+                stroke="#2fe0a8" stroke-width="1.1" opacity=".55"/>
+          <line x1="146" y1="185" x2="154" y2="185" stroke="#2fe0a8" stroke-width="1" opacity=".45"/>
+          <line x1="150" y1="181" x2="150" y2="189" stroke="#2fe0a8" stroke-width="1" opacity=".45"/>
+          <text x="6" y="179" fill="#2fe0a8" font-size="8" font-weight="600"
+                font-family="-apple-system,sans-serif" opacity=".6">0°</text>
         </svg>
       </div>
       <div class="empty" id="empty">
@@ -309,9 +347,21 @@ function toast(m){var t=$("toast");t.textContent=m;t.classList.add("on");
   clearTimeout(toast.t);toast.t=setTimeout(function(){t.classList.remove("on");},2200);}
 
 /* ---------- 광학 ---------- */
+/* 자동 거리 보정값: f=초점거리(px), P=격자 한 칸 실제 크기(mm) */
+var CAL=(function(){
+  try{ var v=JSON.parse(localStorage.getItem("lmCalV1")||"null");
+       return (v&&v.f&&v.P)?v:{f:null,P:null}; }catch(e){ return {f:null,P:null}; }
+})();
+var AUTO=false;
+var lastD=null;          /* 자동 모드에서 마지막으로 측정된 총거리(mm) */
+
+function totalDistance(){
+  if(AUTO && CAL.f && CAL.P && lastD) return lastD;
+  var v=Number($("distIn").value);
+  return (isFinite(v)&&v>0)?v:400;
+}
 function geom(){
-  var total=Number($("distIn").value), p=Number($("posIn").value)/100;
-  if(!isFinite(total)||total<=0) total=400;
+  var total=totalDistance(), p=Number($("posIn").value)/100;
   if(!isFinite(p)||p<=.05||p>=.95) p=.5;
   var a=total*p, b=total-a, e=a*b/total;
   return {a:a,b:b,e:e,eM:e/1000};
@@ -321,6 +371,11 @@ function syncGeom(){
   $("aVal").textContent=Math.round(g.a);
   $("bVal").textContent=Math.round(g.b);
   $("eVal").textContent=g.e.toFixed(1);
+  $("autoDist").textContent=lastD?Math.round(lastD)+"mm":"—";
+  $("calState").textContent = (CAL.f&&CAL.P)
+    ? "보정됨 · f="+Math.round(CAL.f)+"px, 격자 "+CAL.P+"mm"
+    : "아직 보정되지 않았습니다.";
+  $("modeAuto").querySelector("small").textContent=(CAL.f&&CAL.P)?"사용 가능":"보정 필요";
 }
 
 function normAxis(d){var v=d%180; if(v<0)v+=180; return v;}
@@ -482,6 +537,10 @@ function reciprocalBasis(power,N,side){
      A에 반사(reflection)가 섞여 축이 180-θ 로 거울 반전된다.
      항상 오른손 기저(det>0)로 맞춰 준다. */
   if(r1.fx*r2.fy - r1.fy*r2.fx < 0){ r2={fx:-r2.fx, fy:-r2.fy}; }
+
+  /* 주: 고조파 최소제곱 격자 정밀화를 시도했으나 A/B 측정 결과
+     CYL 오차가 0.03D -> 0.36D 로 악화되어 제거했다.
+     3x3 무게중심 서브픽셀 추정이 이 조건에서 더 정확하다. */
   /* 패치 좌표계(cycles/patch) → 원본 픽셀 좌표계(cycles/px)로 정규화.
      이 정규화를 빼먹으면 안/밖 패치 크기 비율이 그대로 가짜 배율로 들어간다. */
   var k=1/side;
@@ -546,20 +605,44 @@ function analyzeFrame(imgData,W,H){
   var Gin=reciprocalBasis(powerSpectrum(Pin,N),N,inSide);
   if(!Gin) return {ok:false,why:"noGridIn"};
 
-  /* 렌즈 밖 후보 8방향 중 가장 뚜렷한 것.
-     패치가 화면 밖으로 나가지 않도록 오프셋·크기를 보수적으로 잡는다. */
+  /* 렌즈 밖 후보 8방향. 진짜 격자는 화면 전체에 퍼져 있으므로
+     여러 위치에서 '같은' 기저가 나와야 한다. 이게 가장 강력한 판별 기준이다. */
   var outSide=R*.85, off=R*1.55, s=Math.SQRT1_2;
   var offs=[[0,-1],[0,1],[-1,0],[1,0],[-s,-s],[s,-s],[-s,s],[s,s]];
-  var bestOut=null;
+  var cands=[];
   for(var i=0;i<offs.length;i++){
     var ox=cx+offs[i][0]*off, oy=cy+offs[i][1]*off;
     var P=grabPatch(imgData,W,H,ox,oy,outSide,N);
     if(!P) continue;
     var G=reciprocalBasis(powerSpectrum(P,N),N,outSide);
     if(!G) continue;
-    if(!bestOut||G.strength>bestOut.strength) bestOut=G;
+    /* 타깃 격자는 정사각형이다. 두 기저 길이가 크게 다르면 격자가 아니다. */
+    var L1=Math.hypot(G.g1.fx,G.g1.fy), L2=Math.hypot(G.g2.fx,G.g2.fy);
+    var ratio=L1>L2?L1/L2:L2/L1;
+    if(ratio>1.35) continue;
+    /* 패치 안에 최소 4주기는 있어야 배율을 분해할 수 있다 */
+    if(Math.min(L1,L2)*outSide < 4) continue;
+    /* 반대로 격자 한 칸이 5px 미만이면 카메라가 못 버티고 에일리어싱이 지배한다.
+       (실측: 한 칸 3.8px에서 -3.00D가 +2.90D로 뒤집혔다) */
+    if(1/Math.max(L1,L2) < 5) continue;
+    G.scale=(L1+L2)/2;
+    cands.push(G);
   }
-  if(!bestOut) return {ok:false,why:"noGridOut"};
+  if(cands.length<2) return {ok:false,why:"noGridOut"};
+
+  /* 서로 다른 위치의 후보들이 주기에 대해 합의해야 한다 */
+  var scales=cands.map(function(c){return c.scale;});
+  var medScale=median(scales);
+  var agree=cands.filter(function(c){
+    return Math.abs(c.scale-medScale)/medScale < .15;});
+  if(agree.length<2) return {ok:false,why:"noGridOut"};
+
+  var bestOut=agree[0];
+  for(i=1;i<agree.length;i++) if(agree[i].strength>bestOut.strength) bestOut=agree[i];
+
+  /* 렌즈 안 격자도 같은 조건 */
+  var Li1=Math.hypot(Gin.g1.fx,Gin.g1.fy), Li2=Math.hypot(Gin.g2.fx,Gin.g2.fy);
+  if(Math.min(Li1,Li2)*inSide < 4) return {ok:false,why:"tooCoarse"};
 
   var A=magMatrix(Gin,bestOut);
   if(!A) return {ok:false,why:"illCond"};
@@ -569,7 +652,16 @@ function analyzeFrame(imgData,W,H){
   var dot=go[0]*go[1]+go[2]*go[3];
   var n1=Math.hypot(go[0],go[2]), n2=Math.hypot(go[1],go[3]);
   var skew=Math.abs(dot/(n1*n2));
-  if(skew>.28) return {ok:false,why:"tilt"};
+  if(skew>.75) return {ok:false,why:"tilt"};
+
+  /* --- 자동 거리 ---
+     밖 격자의 겉보기 주기(px)와 초점거리 f, 실제 격자 크기 P로
+     a+b = f*P/pitch_px. 배율만으로는 절대 거리가 안 나오므로 f가 필요하다. */
+  var outPitchPx=1/bestOut.scale;
+  if(AUTO && CAL.f && CAL.P){
+    var D=CAL.f*CAL.P/outPitchPx;
+    if(D>120 && D<2000) lastD=D; else return {ok:false,why:"badDist"};
+  }
 
   var pr=principal(A);
   /* 비정상 배율 기각 */
@@ -591,7 +683,8 @@ function analyzeFrame(imgData,W,H){
   if(F1<F2) axisDeg=normAxis(axisDeg+90);
 
   return {ok:true, vec:rxToVec(sph,cyl,axisDeg),
-          score:Math.min(Gin.strength,bestOut.strength), skew:skew};
+          score:Math.min(Gin.strength,bestOut.strength), skew:skew,
+          outPitchPx:outPitchPx};
 }
 
 /* ---------- 강건 집계 (중앙값 + MAD) ---------- */
@@ -641,11 +734,13 @@ function stopCam(){
 
 var WHY={noGrid:"격자가 안 보입니다 — 화면을 밝게",
   noGridIn:"렌즈 안 격자를 못 찾았습니다",
-  noGridOut:"렌즈 바깥 격자가 필요합니다 — 뒤로 조금",
+  noGridOut:"렌즈 바깥 격자가 필요합니다 — 격자가 너무 잘거나 안 보입니다",
   tilt:"기울었습니다 — 화면과 평행하게",
   range:"배율이 범위를 벗어났습니다 — 거리 확인",
   illCond:"격자 방향이 불안정합니다",
-  tooClose:"거리가 너무 짧습니다"};
+  tooClose:"거리가 너무 짧습니다",
+  tooCoarse:"격자가 너무 큽니다 — 더 촘촘한 격자를 쓰거나 가까이",
+  badDist:"자동 거리가 범위를 벗어났습니다 — 보정값 확인"};
 
 function tick(){
   var v=$("vid"); if(!v.videoWidth) return;
@@ -657,10 +752,15 @@ function tick(){
 
   var r=analyzeFrame(d,W,H);
   if(r.ok){
+    S.bad=0; S.last=r;
     S.samples.push(r.vec);
     if(S.samples.length>60) S.samples.shift();
+    if(AUTO) syncGeom();
   }else{
-    setBanner(WHY[r.why]||"정렬 중…", "warn");
+    /* 격자를 계속 못 잡으면 예전 표본이 남아 엉뚱한 값을 계속 보여준다 */
+    S.bad=(S.bad||0)+1;
+    if(S.bad>10 && S.samples.length){ S.samples=[]; }
+    setBanner(WHY[r.why]||"정렬 중…", "bad");
   }
   renderLive(r.ok);
 }
@@ -681,6 +781,15 @@ function renderLive(gotOne){
     return;
   }
   var rx=vecToRx(agg.vec);
+  /* 산포가 크면 숫자를 보여주지 않는다. 흔들리는 값을 자신 있게 띄우는 게 가장 나쁘다. */
+  if(agg.spread>.6){
+    $("lSph").textContent="—";$("lCyl").textContent="—";$("lAxis").textContent="—";
+    $("mFill").style.width="0%";
+    $("mRight").textContent="±"+agg.spread.toFixed(2)+"D 불안정";
+    $("saveBtn").disabled=true;
+    setBanner("값이 흔들립니다 — 거리·정렬을 다시 맞추세요","bad");
+    return;
+  }
   $("lSph").textContent=fmtP(q25(rx.sph));
   $("lCyl").textContent=fmtP(q25(rx.cyl));
   $("lAxis").textContent=Math.abs(rx.cyl)>=.25?Math.round(rx.axis)+"°":"—";
@@ -691,8 +800,10 @@ function renderLive(gotOne){
   $("mFill").style.width=pct+"%";
   $("mRight").textContent="±"+agg.spread.toFixed(2)+"D";
   $("saveBtn").disabled=!(n>=10&&agg.spread<.35);
-  if(n>=10&&agg.spread<.22) setBanner("안정됨 — 저장할 수 있습니다","ok");
-  else if(gotOne) setBanner("안정화 중… 움직이지 마세요","warn");
+  var tiltMsg="";
+  if(S.last&&S.last.skew>.35) tiltMsg=" · 기울어짐(보정됨)";
+  if(n>=10&&agg.spread<.22) setBanner("안정됨 — 저장할 수 있습니다"+tiltMsg,"ok");
+  else if(gotOne) setBanner("안정화 중… 움직이지 마세요"+tiltMsg,"warn");
 }
 
 /* ---------- 저장/결과 ---------- */
@@ -738,7 +849,7 @@ function drawTarget(){
   cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.height*dpr);
   var c=cv.getContext("2d");
   c.fillStyle="#fff"; c.fillRect(0,0,cv.width,cv.height);
-  var pitch=Math.round(Math.min(cv.width,cv.height)/26);
+  var pitch=Math.round(Math.min(cv.width,cv.height)/34);
   c.strokeStyle="#111"; c.lineWidth=Math.max(1,dpr);
   var x,y;
   for(x=pitch/2;x<cv.width;x+=pitch){c.beginPath();c.moveTo(x,0);c.lineTo(x,cv.height);c.stroke();}
@@ -775,6 +886,29 @@ $("resetBtn").addEventListener("click",function(){S.samples=[];renderLive();toas
 $("demoBtn").addEventListener("click",demo);
 $("distIn").addEventListener("input",syncGeom);
 $("posIn").addEventListener("input",syncGeom);
+
+function setMode(auto){
+  if(auto && !(CAL.f&&CAL.P)){ toast("먼저 '자동 거리 보정'을 한 번 해주세요."); return; }
+  AUTO=auto;
+  $("modeAuto").classList.toggle("on",auto);
+  $("modeMan").classList.toggle("on",!auto);
+  $("autoBox").classList.toggle("hidden",!auto);
+  $("manBox").classList.toggle("hidden",auto);
+  S.samples=[]; syncGeom(); renderLive();
+}
+$("modeAuto").addEventListener("click",function(){setMode(true);});
+$("modeMan").addEventListener("click",function(){setMode(false);});
+
+$("calBtn").addEventListener("click",function(){
+  var P=Number($("pitchMm").value), D=Number($("calDist").value);
+  if(!(P>0)||!(D>0)){ toast("격자 크기(mm)와 실제 거리(mm)를 입력하세요."); return; }
+  if(!S.last||!S.last.outPitchPx){ toast("먼저 카메라를 켜고 격자를 안정적으로 잡아 주세요."); return; }
+  /* pitch_px = f*P/D  =>  f = pitch_px*D/P */
+  CAL={f:S.last.outPitchPx*D/P, P:P};
+  try{ localStorage.setItem("lmCalV1",JSON.stringify(CAL)); }catch(e){}
+  syncGeom();
+  toast("보정 완료 — 이제 자동 거리를 쓸 수 있습니다.");
+});
 $("tgtBtn").addEventListener("click",openTarget);
 $("tgtClose").addEventListener("click",closeTarget);
 $("tgtFs").addEventListener("click",async function(){
