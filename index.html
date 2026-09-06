@@ -1,0 +1,3100 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07172c">
+  <title>Lens Axis Lab</title>
+  <meta name="description" content="격자 변형을 이용해 기존 안경렌즈의 SPH, CYL, AXIS를 추정하는 연구용 측정 프로토타입">
+  <style>
+    :root {
+      --navy-950: #04101f;
+      --navy-900: #07172c;
+      --navy-800: #0b2342;
+      --navy-700: #12355f;
+      --blue: #1677ff;
+      --cyan: #16c8ed;
+      --mint: #31e6b2;
+      --amber: #ffb454;
+      --red: #ff6f7d;
+      --ink: #eaf4ff;
+      --muted: #9db0c8;
+      --line: rgba(167, 206, 255, .17);
+      --panel: rgba(10, 31, 57, .86);
+      --panel-2: rgba(16, 47, 82, .72);
+      --shadow: 0 24px 70px rgba(0, 0, 0, .28);
+      --radius: 24px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { background: var(--navy-950); }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(22, 119, 255, .21), transparent 31rem),
+        radial-gradient(circle at 94% 18%, rgba(22, 200, 237, .13), transparent 28rem),
+        linear-gradient(150deg, #061426 0%, #07192f 48%, #04101f 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, select { font: inherit; }
+    button, label[role="button"] { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid rgba(22, 200, 237, .62);
+      outline-offset: 2px;
+    }
+
+    .app-shell {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: max(18px, env(safe-area-inset-top)) clamp(16px, 3vw, 42px) max(30px, env(safe-area-inset-bottom));
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 13px;
+    }
+
+    .brand-mark {
+      width: 50px;
+      height: 50px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(121, 206, 255, .34);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(22, 119, 255, .95), rgba(20, 193, 229, .82));
+      box-shadow: 0 12px 32px rgba(8, 113, 224, .35), inset 0 1px rgba(255,255,255,.4);
+    }
+
+    .brand-mark svg { width: 32px; height: 32px; }
+
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(1.22rem, 2.1vw, 1.72rem);
+      letter-spacing: -.035em;
+      line-height: 1.08;
+    }
+
+    .brand p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: .86rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .prototype-badge {
+      flex: 0 0 auto;
+      padding: 7px 11px;
+      color: #ffce90;
+      border: 1px solid rgba(255, 180, 84, .33);
+      border-radius: 999px;
+      background: rgba(255, 180, 84, .1);
+      font-size: .78rem;
+      font-weight: 750;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 5px;
+      max-width: 650px;
+      margin: 0 0 22px;
+      padding: 5px;
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      background: rgba(2, 13, 27, .55);
+    }
+
+    .tab {
+      min-height: 48px;
+      padding: 9px 13px;
+      border: 0;
+      border-radius: 12px;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      font-weight: 760;
+    }
+
+    .tab.active {
+      color: white;
+      background: linear-gradient(135deg, rgba(22, 119, 255, .92), rgba(17, 167, 223, .88));
+      box-shadow: 0 8px 20px rgba(0, 93, 208, .24);
+    }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .safety-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 18px;
+      padding: 12px 15px;
+      color: #ffd6a2;
+      border: 1px solid rgba(255, 180, 84, .22);
+      border-radius: 15px;
+      background: rgba(255, 180, 84, .075);
+      font-size: .9rem;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.13fr) minmax(350px, .87fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(155deg, rgba(12, 36, 65, .92), rgba(7, 25, 47, .9));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(20px);
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 20px 22px 16px;
+    }
+
+    .eyebrow {
+      display: block;
+      margin-bottom: 4px;
+      color: #78dfff;
+      font-size: .78rem;
+      font-weight: 820;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .panel h2, .panel h3 { margin: 0; letter-spacing: -.025em; }
+    .panel h2 { font-size: clamp(1.18rem, 2vw, 1.5rem); }
+    .panel h3 { font-size: 1.02rem; }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      flex: 0 0 auto;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(5, 20, 39, .52);
+      font-size: .78rem;
+      font-weight: 720;
+    }
+
+    .status-pill::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #6d819a;
+      box-shadow: 0 0 0 4px rgba(109, 129, 154, .12);
+    }
+
+    .status-pill.ready { color: #adffe6; }
+    .status-pill.ready::before { background: var(--mint); box-shadow: 0 0 0 4px rgba(49, 230, 178, .12); }
+
+    .prep-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      padding: 0 22px 17px;
+    }
+
+    .prep-item {
+      min-height: 72px;
+      padding: 11px 12px;
+      border: 1px solid rgba(157, 199, 246, .12);
+      border-radius: 14px;
+      color: var(--muted);
+      background: rgba(4, 18, 36, .4);
+      font-size: .79rem;
+    }
+
+    .prep-item strong {
+      display: block;
+      margin-bottom: 3px;
+      color: #edf7ff;
+      font-size: .86rem;
+    }
+
+    .physics-setup {
+      margin: 0 14px 14px;
+      padding: 15px;
+      border: 1px solid rgba(49, 230, 178, .2);
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 92% 8%, rgba(49, 230, 178, .1), transparent 14rem),
+        rgba(4, 22, 39, .68);
+    }
+
+    .physics-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .physics-head strong { color: #effffb; font-size: .92rem; }
+    .physics-head span { color: var(--muted); font-size: .76rem; text-align: right; }
+
+    .distance-map {
+      position: relative;
+      height: 54px;
+      margin: 9px 4px 10px;
+    }
+
+    .distance-track {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      top: 18px;
+      height: 3px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #1677ff, #31e6b2);
+    }
+
+    .distance-node {
+      position: absolute;
+      top: 7px;
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      transform: translateX(-50%);
+      border: 3px solid #dff8ff;
+      border-radius: 50%;
+      color: #06233c;
+      background: #75dcff;
+      box-shadow: 0 0 0 5px rgba(22, 200, 237, .12);
+      font-size: .64rem;
+      font-weight: 900;
+      transition: left .2s ease;
+    }
+
+    .distance-node.phone { left: 18px; transform: none; }
+    .distance-node.screen { left: auto; right: 6px; transform: none; background: #31e6b2; }
+    .distance-node.lens { left: 50%; }
+    .distance-label {
+      position: absolute;
+      top: 36px;
+      transform: translateX(-50%);
+      color: #aac0d5;
+      font-size: .68rem;
+      font-weight: 720;
+      white-space: nowrap;
+    }
+    .distance-label.phone { left: 18px; transform: none; }
+    .distance-label.screen { right: 0; transform: none; }
+    .distance-label.lens { left: 50%; transition: left .2s ease; }
+
+    .geometry-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .geometry-metric {
+      padding: 9px 8px;
+      border: 1px solid rgba(114, 205, 255, .13);
+      border-radius: 12px;
+      background: rgba(3, 15, 29, .42);
+      text-align: center;
+    }
+    .geometry-metric span { display: block; color: var(--muted); font-size: .67rem; }
+    .geometry-metric strong { display: block; margin-top: 2px; color: #dff9ff; font-size: .84rem; font-variant-numeric: tabular-nums; }
+    .physics-equation {
+      margin: 9px 0 0;
+      color: #7890a8;
+      font-size: .7rem;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .camera-stage {
+      position: relative;
+      aspect-ratio: 4 / 3;
+      margin: 0 14px;
+      overflow: hidden;
+      border: 1px solid rgba(109, 194, 255, .2);
+      border-radius: 20px;
+      background:
+        linear-gradient(rgba(12, 37, 67, .2), rgba(4, 15, 30, .8)),
+        repeating-linear-gradient(0deg, transparent 0 39px, rgba(66, 182, 255, .04) 40px),
+        repeating-linear-gradient(90deg, transparent 0 39px, rgba(73, 182, 255, .04) 40px),
+        #04101f;
+    }
+
+    .camera-stage video,
+    .camera-stage canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #020913;
+    }
+
+    #analysisCanvas { touch-action: none; cursor: crosshair; }
+    .hidden { display: none !important; }
+
+    .empty-stage {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .empty-icon {
+      width: 66px;
+      height: 66px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 13px;
+      border: 1px solid rgba(103, 194, 255, .22);
+      border-radius: 22px;
+      color: #75dcff;
+      background: rgba(16, 57, 97, .6);
+      font-size: 1.9rem;
+    }
+
+    .empty-stage strong { display: block; margin-bottom: 5px; color: #eaf6ff; }
+
+    .stage-message {
+      position: absolute;
+      left: 50%;
+      bottom: 14px;
+      z-index: 4;
+      max-width: calc(100% - 28px);
+      transform: translateX(-50%);
+      padding: 8px 12px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 999px;
+      color: white;
+      background: rgba(2, 13, 27, .77);
+      box-shadow: 0 8px 22px rgba(0,0,0,.24);
+      font-size: .78rem;
+      font-weight: 700;
+      white-space: nowrap;
+      backdrop-filter: blur(10px);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      padding: 14px;
+    }
+
+    .btn {
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border: 1px solid rgba(153, 203, 255, .18);
+      border-radius: 14px;
+      color: #eaf6ff;
+      background: rgba(18, 55, 94, .72);
+      cursor: pointer;
+      font-weight: 770;
+      text-decoration: none;
+    }
+
+    .btn:hover { border-color: rgba(104, 201, 255, .45); }
+    .btn.primary {
+      border-color: rgba(92, 193, 255, .45);
+      color: white;
+      background: linear-gradient(135deg, #146ff1, #0da9db);
+      box-shadow: 0 10px 25px rgba(0, 94, 218, .25);
+    }
+    .btn.mint {
+      border-color: rgba(49, 230, 178, .35);
+      color: #062a25;
+      background: linear-gradient(135deg, #59efc1, #21cfae);
+    }
+    .btn.ghost { background: rgba(5, 19, 37, .46); color: var(--muted); }
+    .btn:disabled { cursor: not-allowed; opacity: .42; box-shadow: none; }
+    .controls .btn { flex: 1 1 150px; }
+
+    #photoInput { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+    .adjustments {
+      margin: 0 14px 14px;
+      padding: 15px;
+      border: 1px solid rgba(124, 192, 255, .14);
+      border-radius: 18px;
+      background: rgba(4, 18, 35, .56);
+    }
+
+    .adjustment-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 13px;
+      color: var(--muted);
+      font-size: .86rem;
+    }
+
+    .adjustment-head strong { color: #eef7ff; }
+
+    .slider-row {
+      display: grid;
+      grid-template-columns: 115px 1fr 63px;
+      gap: 11px;
+      align-items: center;
+      min-height: 43px;
+    }
+
+    .slider-row label { color: #c8d9eb; font-size: .84rem; font-weight: 680; }
+    .slider-row output { color: #7ce4ff; text-align: right; font-size: .84rem; font-variant-numeric: tabular-nums; }
+    input[type="range"] { width: 100%; accent-color: var(--cyan); }
+
+    .analysis-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 11px;
+    }
+
+    .metric-chip {
+      padding: 6px 9px;
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(29, 67, 105, .52);
+      font-size: .75rem;
+      font-weight: 700;
+    }
+
+    .result-panel { min-height: 570px; }
+
+    .result-placeholder {
+      min-height: 480px;
+      display: grid;
+      place-items: center;
+      padding: 42px 26px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .result-placeholder .dial-ghost {
+      position: relative;
+      width: 148px;
+      height: 148px;
+      margin: 0 auto 20px;
+      border: 12px solid rgba(90, 157, 214, .1);
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 1px rgba(128, 195, 248, .12);
+    }
+
+    .dial-ghost::before, .dial-ghost::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 100px;
+      height: 1px;
+      background: rgba(118, 185, 238, .17);
+      transform: translate(-50%, -50%);
+    }
+    .dial-ghost::after { transform: translate(-50%, -50%) rotate(90deg); }
+
+    .result-content { padding: 0 20px 20px; }
+
+    .cyl-format {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin: 0 0 12px;
+      padding: 4px;
+      border: 1px solid rgba(118, 209, 255, .14);
+      border-radius: 13px;
+      background: rgba(4, 18, 35, .52);
+    }
+
+    .format-btn {
+      min-height: 38px;
+      border: 0;
+      border-radius: 9px;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      font-size: .8rem;
+      font-weight: 770;
+    }
+    .format-btn.active {
+      color: #052a28;
+      background: linear-gradient(135deg, #74f4cf, #35dcb7);
+    }
+
+    .quality {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      margin: 0 0 16px;
+      padding: 11px 12px;
+      border: 1px solid rgba(118, 209, 255, .15);
+      border-radius: 14px;
+      background: rgba(5, 21, 40, .52);
+      font-size: .82rem;
+    }
+
+    .quality-bar {
+      height: 7px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(135, 177, 215, .12);
+    }
+    .quality-bar span {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--amber), var(--mint));
+      transition: width .35s ease;
+    }
+
+    .result-main {
+      display: grid;
+      grid-template-columns: 1fr 148px;
+      gap: 14px;
+      align-items: center;
+      padding: 18px;
+      border: 1px solid rgba(114, 205, 255, .2);
+      border-radius: 20px;
+      background:
+        radial-gradient(circle at 90% 10%, rgba(22, 200, 237, .12), transparent 13rem),
+        linear-gradient(145deg, rgba(18, 59, 99, .75), rgba(7, 28, 52, .78));
+    }
+
+    .rx-grid { display: grid; gap: 10px; }
+    .rx-row {
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      gap: 8px;
+      align-items: baseline;
+    }
+    .rx-label { color: var(--muted); font-size: .82rem; font-weight: 780; }
+    .rx-value {
+      color: white;
+      font-size: clamp(1.48rem, 4vw, 2.15rem);
+      font-weight: 850;
+      line-height: 1;
+      letter-spacing: -.04em;
+      font-variant-numeric: tabular-nums;
+    }
+    .rx-value.axis { color: #82e9ff; }
+    #axisDial { width: 148px; height: 148px; }
+
+    .exact-reading {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: .8rem;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .result-alert {
+      margin-top: 12px;
+      padding: 11px 12px;
+      border: 1px solid rgba(255, 180, 84, .16);
+      border-radius: 13px;
+      color: #ffd5a0;
+      background: rgba(255, 180, 84, .07);
+      font-size: .8rem;
+    }
+
+    .reading-stack {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 17px;
+      background: rgba(4, 17, 33, .52);
+    }
+
+    .section-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 11px;
+    }
+
+    .section-line span { color: var(--muted); font-size: .8rem; }
+    .reading-list { display: flex; flex-wrap: wrap; gap: 7px; }
+    .reading-item {
+      padding: 7px 9px;
+      border: 1px solid rgba(122, 193, 246, .14);
+      border-radius: 10px;
+      color: #cfe8fa;
+      background: rgba(24, 65, 103, .48);
+      font-size: .75rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .result-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+      margin-top: 14px;
+    }
+
+    .quick-cal {
+      margin-top: 15px;
+      padding: 15px;
+      border: 1px solid rgba(49, 230, 178, .16);
+      border-radius: 17px;
+      background: rgba(10, 56, 53, .24);
+    }
+
+    .quick-cal p { margin: 4px 0 12px; color: var(--muted); font-size: .8rem; }
+
+    .cal-inputs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .field label {
+      display: block;
+      margin: 0 0 5px;
+      color: var(--muted);
+      font-size: .73rem;
+      font-weight: 720;
+    }
+
+    .field input, .field select {
+      width: 100%;
+      min-height: 44px;
+      padding: 8px 10px;
+      border: 1px solid rgba(135, 196, 243, .17);
+      border-radius: 11px;
+      color: white;
+      background: rgba(2, 17, 34, .66);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .quick-cal .btn { width: 100%; margin-top: 9px; }
+
+    .target-wrap {
+      position: relative;
+      min-height: calc(100vh - 160px);
+      overflow: hidden;
+      border: 1px solid rgba(121, 197, 255, .2);
+      border-radius: 24px;
+      background: white;
+      box-shadow: var(--shadow);
+    }
+
+    #targetCanvas {
+      display: block;
+      width: 100%;
+      height: calc(100vh - 160px);
+      min-height: 650px;
+      background: white;
+    }
+
+    .target-overlay {
+      position: absolute;
+      left: 50%;
+      top: 18px;
+      z-index: 3;
+      width: min(720px, calc(100% - 28px));
+      transform: translateX(-50%);
+      padding: 13px 15px;
+      border: 1px solid rgba(14, 65, 116, .13);
+      border-radius: 16px;
+      color: #18344f;
+      background: rgba(255, 255, 255, .9);
+      box-shadow: 0 12px 38px rgba(21, 67, 108, .14);
+      text-align: center;
+      backdrop-filter: blur(12px);
+    }
+    .target-overlay strong { color: #0966d1; }
+    .target-overlay p { margin: 3px 0 0; font-size: .84rem; }
+
+    .target-actions {
+      position: absolute;
+      left: 50%;
+      bottom: 18px;
+      z-index: 3;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      width: min(760px, calc(100% - 28px));
+      transform: translateX(-50%);
+      padding: 10px;
+      border-radius: 17px;
+      background: rgba(5, 25, 49, .86);
+      box-shadow: 0 14px 34px rgba(0,0,0,.2);
+      backdrop-filter: blur(12px);
+    }
+    .target-actions .btn { min-height: 44px; }
+    .target-space {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 190px;
+      padding: 0 8px;
+      color: #d6eaff;
+      font-size: .8rem;
+    }
+
+    .cal-layout {
+      display: grid;
+      grid-template-columns: minmax(0, .82fr) minmax(420px, 1.18fr);
+      gap: 18px;
+    }
+
+    .cal-body { padding: 0 22px 22px; }
+    .cal-stat {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 2px 0 16px;
+    }
+    .stat-card {
+      padding: 14px 12px;
+      border: 1px solid rgba(118, 193, 247, .13);
+      border-radius: 14px;
+      background: rgba(4, 18, 36, .42);
+    }
+    .stat-card span { display: block; color: var(--muted); font-size: .72rem; }
+    .stat-card strong { display: block; margin-top: 3px; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+
+    .cal-tip {
+      margin: 0;
+      padding: 14px;
+      border-radius: 14px;
+      color: #c9dded;
+      background: rgba(22, 119, 255, .08);
+      font-size: .84rem;
+    }
+    .cal-tip strong { color: #8bdfff; }
+
+    .sample-list { display: grid; gap: 8px; }
+    .sample {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 13px 14px;
+      border: 1px solid rgba(123, 192, 245, .13);
+      border-radius: 14px;
+      background: rgba(4, 18, 35, .42);
+    }
+    .sample strong { display: block; font-size: .9rem; font-variant-numeric: tabular-nums; }
+    .sample span { color: var(--muted); font-size: .74rem; }
+    .icon-btn {
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(255, 111, 125, .2);
+      border-radius: 12px;
+      color: #ffb5bd;
+      background: rgba(255, 111, 125, .08);
+      cursor: pointer;
+    }
+    .empty-list {
+      padding: 38px 18px;
+      border: 1px dashed rgba(130, 194, 241, .18);
+      border-radius: 16px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .footer-note {
+      max-width: 980px;
+      margin: 20px auto 0;
+      color: #788ca5;
+      font-size: .76rem;
+      text-align: center;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      z-index: 50;
+      max-width: calc(100% - 32px);
+      transform: translate(-50%, 20px);
+      padding: 11px 15px;
+      border: 1px solid rgba(116, 204, 255, .24);
+      border-radius: 13px;
+      color: white;
+      background: rgba(4, 20, 39, .94);
+      box-shadow: 0 18px 45px rgba(0,0,0,.34);
+      opacity: 0;
+      pointer-events: none;
+      transition: .22s ease;
+      font-size: .86rem;
+      text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 920px) {
+      .workspace, .cal-layout { grid-template-columns: 1fr; }
+      .result-panel { min-height: auto; }
+      .result-placeholder { min-height: 330px; }
+    }
+
+    @media (max-width: 620px) {
+      .app-shell { padding-left: 12px; padding-right: 12px; }
+      .topbar { align-items: flex-start; }
+      .brand-mark { width: 44px; height: 44px; border-radius: 14px; }
+      .brand p { max-width: 210px; }
+      .prototype-badge { padding: 6px 8px; font-size: .68rem; }
+      .tabs { max-width: none; }
+      .tab { padding: 8px 5px; font-size: .84rem; }
+      .prep-grid { grid-template-columns: 1fr; }
+      .prep-item { min-height: 0; }
+      .panel-head { padding: 17px 16px 14px; }
+      .prep-grid { padding: 0 16px 14px; }
+      .camera-stage { margin: 0 8px; border-radius: 16px; }
+      .physics-setup { margin: 0 8px 10px; }
+      .physics-head { display: block; }
+      .physics-head span { display: block; margin-top: 3px; text-align: left; }
+      .controls { padding: 10px 8px; }
+      .adjustments { margin: 0 8px 8px; }
+      .slider-row { grid-template-columns: 93px 1fr 54px; gap: 7px; }
+      .result-content { padding: 0 12px 12px; }
+      .result-main { grid-template-columns: 1fr 120px; padding: 14px; }
+      #axisDial { width: 120px; height: 120px; }
+      .rx-row { grid-template-columns: 48px 1fr; }
+      .cal-inputs { grid-template-columns: 1fr 1fr 1fr; }
+      .cal-body { padding: 0 16px 16px; }
+      .cal-layout { gap: 12px; }
+      #targetCanvas { min-height: 590px; }
+    }
+
+    @media (max-width: 390px) {
+      .brand p { display: none; }
+      .result-main { grid-template-columns: 1fr; }
+      #axisDial { margin: 0 auto; }
+      .result-actions { grid-template-columns: 1fr; }
+      .geometry-metrics { grid-template-columns: 1fr; }
+    }
+
+    .icon-only-btn {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      color: var(--ink);
+      background: rgba(5, 20, 39, .52);
+      cursor: pointer;
+      font-size: 1.05rem;
+    }
+    .icon-only-btn:hover { border-color: rgba(104, 201, 255, .45); }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(2, 8, 17, .68);
+      backdrop-filter: blur(6px);
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      width: min(640px, 100%);
+      max-height: min(84vh, 780px);
+      overflow-y: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(160deg, rgba(13, 38, 68, .98), rgba(6, 22, 42, .98));
+      box-shadow: var(--shadow);
+    }
+    .modal-head {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(9, 29, 54, .96);
+    }
+    .modal-head h2 { margin: 0; font-size: 1.08rem; }
+    .modal-body { padding: 18px 20px 22px; }
+    .modal-section { margin-bottom: 20px; }
+    .modal-section h3 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 12px;
+      color: #78dfff;
+      font-size: .92rem;
+    }
+    .guide-steps { display: grid; gap: 12px; padding: 0; margin: 0; list-style: none; }
+    .guide-step { display: flex; align-items: flex-start; gap: 12px; }
+    .guide-step-num {
+      flex: 0 0 auto;
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: #06233c;
+      background: var(--cyan);
+      font-size: .78rem;
+      font-weight: 900;
+    }
+    .guide-step p { margin: 0; color: #d8e8f7; font-size: .88rem; }
+    .guide-tip-list { display: grid; gap: 9px; padding: 0; margin: 0; list-style: none; }
+    .guide-tip-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      color: #cfe3f5;
+      font-size: .86rem;
+    }
+    .guide-tip-list li::before { content: "✓"; flex: 0 0 auto; color: var(--mint); font-weight: 900; }
+    .modal-disclaimer {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 13px 15px;
+      border: 1px solid rgba(255, 180, 84, .25);
+      border-radius: 15px;
+      color: #ffd6a2;
+      background: rgba(255, 180, 84, .08);
+      font-size: .84rem;
+    }
+    .icon-toggle-row { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 14px 12px; }
+    .icon-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 40px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      color: var(--muted);
+      background: rgba(5, 20, 39, .5);
+      cursor: pointer;
+      font-size: .78rem;
+      font-weight: 700;
+    }
+    .icon-toggle.on {
+      color: #062a25;
+      border-color: rgba(49, 230, 178, .4);
+      background: linear-gradient(135deg, #74f4cf, #35dcb7);
+    }
+    .grid-align-guide, .glasses-guide {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: none;
+      pointer-events: none;
+    }
+    .grid-align-guide.on, .glasses-guide.on { display: block; }
+    .grid-align-guide {
+      margin: 8%;
+      background-image:
+        repeating-linear-gradient(0deg, rgba(120, 223, 255, .32) 0 1px, transparent 1px 12.5%),
+        repeating-linear-gradient(90deg, rgba(120, 223, 255, .32) 0 1px, transparent 1px 12.5%);
+      border: 2px dashed rgba(120, 223, 255, .6);
+      border-radius: 10px;
+    }
+    .glasses-guide svg { width: 100%; height: 100%; opacity: .55; }
+
+    .history-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 0 22px 14px;
+    }
+    .history-list { display: grid; gap: 8px; padding: 0 22px 22px; }
+    .history-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 13px 14px;
+      border: 1px solid rgba(123, 192, 245, .13);
+      border-radius: 14px;
+      background: rgba(4, 18, 35, .42);
+    }
+    .history-item strong { display: block; font-size: .92rem; font-variant-numeric: tabular-nums; }
+    .history-item span { color: var(--muted); font-size: .74rem; }
+    .history-item .quality-tag { color: #8bdfff; font-weight: 720; }
+
+    .live-panel {
+      margin: 0 14px 14px;
+      padding: 14px 15px 16px;
+      border: 1px solid rgba(114, 205, 255, .2);
+      border-radius: 18px;
+      background: rgba(4, 18, 35, .58);
+    }
+    .live-panel.hidden { display: none; }
+    .live-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: .82rem;
+    }
+    .live-head strong { color: #eef7ff; }
+    .live-status {
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-weight: 780;
+      font-size: .76rem;
+    }
+    .live-status.moving { color: #ffb0b8; background: rgba(255, 111, 125, .14); }
+    .live-status.settling { color: #ffd6a2; background: rgba(255, 180, 84, .14); }
+    .live-status.stable { color: #adffe6; background: rgba(49, 230, 178, .14); }
+
+    .live-readout-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-bottom: 12px;
+    }
+    .live-readout-row {
+      display: grid;
+      grid-template-columns: 52px repeat(3, 1fr);
+      gap: 6px;
+      align-items: center;
+      font-size: .78rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .live-readout-row .rr-label { color: var(--muted); font-weight: 720; }
+    .live-readout-row .rr-val { color: #dff9ff; text-align: right; }
+    .live-readout-row.mean .rr-val { color: #eafff8; font-weight: 800; }
+
+    .live-sparks {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 13px;
+    }
+    .live-spark-card {
+      padding: 8px 9px;
+      border: 1px solid rgba(114, 205, 255, .13);
+      border-radius: 12px;
+      background: rgba(3, 15, 29, .42);
+      text-align: center;
+    }
+    .live-spark-card span { display: block; color: var(--muted); font-size: .68rem; margin-bottom: 3px; }
+    .live-spark-card canvas { width: 100%; height: 34px; display: block; }
+    .live-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+
+    @media (max-width: 620px) {
+      .live-panel { margin: 0 8px 8px; }
+      .live-readout-row { grid-template-columns: 42px repeat(3, 1fr); font-size: .72rem; }
+    }
+
+    @media (max-width: 620px) {
+      .modal { max-height: 90vh; }
+      .modal-head { padding: 14px 16px; }
+      .modal-body { padding: 14px 16px 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40" fill="none">
+            <path d="M4 19.5c4-4 9-5.5 16-5.5s12 1.5 16 5.5" stroke="white" stroke-width="2.8" stroke-linecap="round"/>
+            <circle cx="12" cy="23" r="7.2" stroke="white" stroke-width="2.8"/>
+            <circle cx="28" cy="23" r="7.2" stroke="white" stroke-width="2.8"/>
+            <path d="M19.2 22.5h1.6" stroke="white" stroke-width="2.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Lens Axis Lab</h1>
+          <p>안경렌즈 SPH · CYL · AXIS 측정 실험실</p>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; flex:0 0 auto;">
+        <button id="guideBtn" class="icon-only-btn" type="button" aria-label="지침 보기" title="지침">ⓘ</button>
+        <span class="prototype-badge">광학식 0.2 · AI 미사용</span>
+      </div>
+    </header>
+
+    <nav class="tabs" aria-label="주요 화면" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
+      <button class="tab active" type="button" data-view="measureView">렌즈 측정</button>
+      <button class="tab" type="button" data-view="targetView">광학 타깃</button>
+      <button class="tab" type="button" data-view="calibrationView">기기 보정</button>
+      <button class="tab" type="button" data-view="historyView">측정 이력</button>
+    </nav>
+
+    <main>
+      <section id="measureView" class="view active">
+        <div class="safety-note">
+          <span aria-hidden="true">⚠</span>
+          <span><strong>AI를 사용하지 않는 광학식 연구용 프로토타입입니다.</strong> 현재 결과는 처방·판매·검안에 사용하지 말고, 반드시 렌즈미터 정답값과 비교해 주세요.</span>
+        </div>
+
+        <div class="workspace">
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">OPTICAL CAPTURE</span>
+                <h2>격자 변형으로 렌즈도수 계산</h2>
+              </div>
+              <span id="captureStatus" class="status-pill">촬영 전</span>
+            </div>
+
+            <div class="prep-grid">
+              <div class="prep-item"><strong>1. 타깃 열기</strong>다른 PC·태블릿에서 광학 타깃을 전체 화면으로 표시</div>
+              <div class="prep-item"><strong>2. 거리 측정</strong>휴대폰 카메라부터 화면까지의 전체 거리를 입력</div>
+              <div class="prep-item"><strong>3. 중간에 배치</strong>안경을 두 기기의 중간에 수평으로 잡고 정면 촬영</div>
+            </div>
+
+            <div class="physics-setup">
+              <div class="physics-head">
+                <strong>촬영 기하 설정</strong>
+                <span>AI 대신 실제 거리로 유효 광학거리를 계산합니다</span>
+              </div>
+              <div class="slider-row">
+                <label for="cameraScreenSlider">카메라–화면</label>
+                <input id="cameraScreenSlider" type="range" min="300" max="800" step="10" value="400">
+                <output id="cameraScreenOutput" for="cameraScreenSlider">400mm</output>
+              </div>
+              <div class="slider-row">
+                <label for="lensPositionSlider">렌즈 위치</label>
+                <input id="lensPositionSlider" type="range" min="30" max="70" step="1" value="50">
+                <output id="lensPositionOutput" for="lensPositionSlider">50%</output>
+              </div>
+              <div class="distance-map" aria-hidden="true">
+                <div class="distance-track"></div>
+                <span class="distance-node phone">P</span>
+                <span id="lensNode" class="distance-node lens">L</span>
+                <span class="distance-node screen">T</span>
+                <span class="distance-label phone">휴대폰</span>
+                <span id="lensLabel" class="distance-label lens">안경</span>
+                <span class="distance-label screen">타깃</span>
+              </div>
+              <div class="geometry-metrics">
+                <div class="geometry-metric"><span>카메라→렌즈</span><strong id="cameraLensValue">200mm</strong></div>
+                <div class="geometry-metric"><span>렌즈→화면</span><strong id="lensScreenValue">200mm</strong></div>
+                <div class="geometry-metric"><span>유효 광학거리</span><strong id="effectiveDistanceValue">100.0mm</strong></div>
+              </div>
+              <p class="physics-equation">e = a×b/(a+b) · F = (1−1/m)/e</p>
+            </div>
+
+            <div id="cameraStage" class="camera-stage">
+              <video id="cameraVideo" class="hidden" playsinline muted></video>
+              <canvas id="analysisCanvas" class="hidden" aria-label="촬영 이미지와 렌즈 분석 영역"></canvas>
+              <div id="gridAlignGuide" class="grid-align-guide" aria-hidden="true"></div>
+              <div id="glassesGuide" class="glasses-guide" aria-hidden="true">
+                <svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M14 46c10-10 26-14 42-14s32 4 42 14" stroke="#78dfff" stroke-width="3" fill="none" stroke-linecap="round"/>
+                  <circle cx="42" cy="58" r="26" stroke="#78dfff" stroke-width="3" fill="none"/>
+                  <circle cx="128" cy="58" r="26" stroke="#78dfff" stroke-width="3" fill="none"/>
+                  <path d="M68 58h24" stroke="#78dfff" stroke-width="3" stroke-linecap="round"/>
+                  <path d="M154 46c10-10 22-14 32-14" stroke="#78dfff" stroke-width="3" fill="none" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div id="emptyStage" class="empty-stage">
+                <div>
+                  <div class="empty-icon" aria-hidden="true">⌁</div>
+                  <strong>카메라 또는 사진으로 시작하세요</strong>
+                  <span>파란 격자점이 렌즈 안팎에 모두 보여야 합니다.</span>
+                </div>
+              </div>
+              <div id="stageMessage" class="stage-message hidden">안경테를 수평 가이드에 맞춰 주세요</div>
+            </div>
+
+            <div id="cameraToggleRow" class="icon-toggle-row hidden">
+              <button id="gridGuideToggle" class="icon-toggle" type="button">⌗ 격자 정렬 가이드</button>
+              <button id="glassesGuideToggle" class="icon-toggle" type="button">👓 안경테 가이드</button>
+              <button id="flashToggle" class="icon-toggle hidden" type="button">⚡ 플래시</button>
+              <button id="liveScanToggle" class="icon-toggle" type="button">📡 실시간 스캔</button>
+            </div>
+
+            <div class="controls">
+              <button id="startCameraBtn" class="btn primary" type="button">카메라 켜기</button>
+              <button id="captureBtn" class="btn mint hidden" type="button">현재 화면 촬영</button>
+              <label class="btn" role="button" for="photoInput">사진 촬영·선택</label>
+              <input id="photoInput" type="file" accept="image/*" capture="environment">
+              <button id="demoBtn" class="btn ghost" type="button">데모 렌즈 불러오기</button>
+            </div>
+
+            <div id="livePanel" class="live-panel hidden">
+              <div class="live-head">
+                <span>📈 <strong id="liveScanCount">0</strong>회 스캔</span>
+                <span id="liveStatusPill" class="live-status settling">안정화 중</span>
+              </div>
+              <div class="live-readout-grid">
+                <div class="live-readout-row">
+                  <span class="rr-label"></span><span class="rr-val">SPH</span><span class="rr-val">CYL</span><span class="rr-val">AXIS</span>
+                </div>
+                <div class="live-readout-row">
+                  <span class="rr-label">LIVE</span><span id="liveSph" class="rr-val">—</span><span id="liveCyl" class="rr-val">—</span><span id="liveAxis" class="rr-val">—</span>
+                </div>
+                <div class="live-readout-row">
+                  <span class="rr-label">PEAK</span><span id="peakSph" class="rr-val">—</span><span id="peakCyl" class="rr-val">—</span><span id="peakAxis" class="rr-val">—</span>
+                </div>
+                <div class="live-readout-row mean">
+                  <span class="rr-label">MEAN</span><span id="meanSph" class="rr-val">—</span><span id="meanCyl" class="rr-val">—</span><span id="meanAxis" class="rr-val">—</span>
+                </div>
+              </div>
+              <div class="live-sparks">
+                <div class="live-spark-card"><span>SPH 추이</span><canvas id="sphSpark"></canvas></div>
+                <div class="live-spark-card"><span>CYL 추이</span><canvas id="cylSpark"></canvas></div>
+                <div class="live-spark-card"><span>AXIS 추이</span><canvas id="axisSpark"></canvas></div>
+              </div>
+              <div class="live-actions">
+                <button id="liveSaveBtn" class="btn mint" type="button" disabled>측정값 저장</button>
+                <button id="liveResetBtn" class="btn ghost" type="button">새 렌즈</button>
+              </div>
+            </div>
+
+            <div id="adjustments" class="adjustments hidden">
+              <div class="adjustment-head">
+                <strong>렌즈 영역 맞추기</strong>
+                <span>이미지에서 렌즈 중심을 터치하세요</span>
+              </div>
+              <div class="slider-row">
+                <label for="radiusSlider">렌즈 범위</label>
+                <input id="radiusSlider" type="range" min="12" max="42" value="25">
+                <output id="radiusOutput" for="radiusSlider">25%</output>
+              </div>
+              <div class="slider-row">
+                <label for="frameAngleSlider">안경테 기울기</label>
+                <input id="frameAngleSlider" type="range" min="-30" max="30" value="0">
+                <output id="frameAngleOutput" for="frameAngleSlider">0°</output>
+              </div>
+              <div class="analysis-summary">
+                <span id="dotCountChip" class="metric-chip">점 인식 —</span>
+                <span id="insideCountChip" class="metric-chip">렌즈 내부 —</span>
+                <span id="gridChip" class="metric-chip">광학 계산 대기</span>
+              </div>
+              <div class="controls" style="padding:13px 0 0">
+                <button id="analyzeBtn" class="btn primary" type="button">SPH·CYL·AXIS 계산</button>
+                <button id="retakeTopBtn" class="btn ghost" type="button">다시 촬영</button>
+              </div>
+            </div>
+          </article>
+
+          <aside class="panel result-panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">PHYSICS RESULT</span>
+                <h2>광학 계산 결과</h2>
+              </div>
+              <span id="calBadge" class="status-pill">미보정</span>
+            </div>
+
+            <div id="resultPlaceholder" class="result-placeholder">
+              <div>
+                <div class="dial-ghost" aria-hidden="true"></div>
+                <strong>분석 결과가 여기에 표시됩니다</strong>
+                <p>렌즈 중심을 정확히 지정하면 두 방향의 격자 변형을 분리해 계산합니다.</p>
+              </div>
+            </div>
+
+            <div id="resultContent" class="result-content hidden">
+              <div class="cyl-format" aria-label="실린더 표기 방식">
+                <button class="format-btn active" type="button" data-cyl-format="minus">− CYL 표기</button>
+                <button class="format-btn" type="button" data-cyl-format="plus">+ CYL 표기</button>
+              </div>
+              <div class="quality">
+                <span>영상 품질</span>
+                <div class="quality-bar"><span id="qualityFill"></span></div>
+                <strong id="qualityValue">—</strong>
+              </div>
+
+              <div class="result-main">
+                <div class="rx-grid">
+                  <div class="rx-row"><span class="rx-label">SPH</span><strong id="sphValue" class="rx-value">—</strong></div>
+                  <div class="rx-row"><span class="rx-label">CYL</span><strong id="cylValue" class="rx-value">—</strong></div>
+                  <div class="rx-row"><span class="rx-label">AXIS</span><strong id="axisValue" class="rx-value axis">—</strong></div>
+                  <div class="rx-row"><span class="rx-label">SE</span><strong id="seValue" class="rx-value">—</strong></div>
+                </div>
+                <canvas id="axisDial" width="296" height="296" aria-label="난시축 방향 표시"></canvas>
+              </div>
+
+              <p id="exactReading" class="exact-reading"></p>
+              <div id="resultAlert" class="result-alert"></div>
+
+              <div class="reading-stack">
+                <div class="section-line">
+                  <h3>반복 측정</h3>
+                  <span id="readingProgress">0 / 3</span>
+                </div>
+                <div id="readingList" class="reading-list"><span class="metric-chip">아직 저장된 측정 없음</span></div>
+              </div>
+
+              <div class="result-actions">
+                <button id="addReadingBtn" class="btn mint" type="button">현재값 추가</button>
+                <button id="retakeBtn" class="btn ghost" type="button">다시 촬영</button>
+              </div>
+
+              <div class="quick-cal">
+                <h3>렌즈미터 정답값 추가</h3>
+                <p>마이너스 실린더 형식의 정답값을 입력하면 이 기기의 광학 보정계수로 누적됩니다.</p>
+                <div class="cal-inputs">
+                  <div class="field"><label for="knownSph">SPH</label><input id="knownSph" type="number" step=".25" placeholder="-2.00"></div>
+                  <div class="field"><label for="knownCyl">CYL</label><input id="knownCyl" type="number" step=".25" max="0" placeholder="-1.25"></div>
+                  <div class="field"><label for="knownAxis">AXIS</label><input id="knownAxis" type="number" step="1" min="0" max="180" placeholder="180"></div>
+                </div>
+                <button id="saveCalibrationBtn" class="btn" type="button">이 렌즈를 보정 데이터로 저장</button>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <p class="footer-note">결과는 기존 안경렌즈의 광학적 변형을 추정한 값입니다. 눈의 새로운 처방값을 측정하는 검사가 아닙니다.</p>
+      </section>
+
+      <section id="targetView" class="view">
+        <div class="target-wrap">
+          <canvas id="targetCanvas" aria-label="렌즈 측정용 비대칭 점 격자"></canvas>
+          <div class="target-overlay">
+            <strong>측정용 광학 격자</strong>
+            <p>밝기를 높이고 휴대폰과 화면의 중간에 안경을 놓은 뒤, 청록색 수평선과 안경테를 나란히 맞추세요.</p>
+          </div>
+          <div class="target-actions">
+            <div class="target-space">
+              <span>점 간격</span>
+              <input id="targetSpacing" type="range" min="34" max="64" value="48">
+              <output id="targetSpacingOutput">48</output>
+            </div>
+            <button id="fullscreenBtn" class="btn primary" type="button">전체 화면</button>
+            <button id="wakeBtn" class="btn" type="button">화면 켜짐 유지</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="calibrationView" class="view">
+        <div class="cal-layout">
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">OPTICAL CALIBRATION</span>
+                <h2>현재 기기 보정 상태</h2>
+              </div>
+              <span id="modelStatus" class="status-pill">데이터 없음</span>
+            </div>
+            <div class="cal-body">
+              <div class="cal-stat">
+                <div class="stat-card"><span>렌즈 수</span><strong id="sampleCount">0</strong></div>
+                <div class="stat-card"><span>구면 보정</span><strong id="meanGain">1.00×</strong></div>
+                <div class="stat-card"><span>난시 보정</span><strong id="cylGain">1.00×</strong></div>
+              </div>
+              <p class="cal-tip"><strong>권장 구성:</strong> 실제 렌즈미터로 확인한 CYL -0.75~-2.25D와 AXIS 180°, 90°, 45°, 135° 렌즈를 최소 6개 이상 측정하세요. 학습용 AI가 아니라 카메라·거리의 체계적 오차를 보정하는 데이터입니다.</p>
+              <div class="controls" style="padding:14px 0 0">
+                <button id="exportBtn" class="btn" type="button">보정 데이터 내보내기</button>
+                <label class="btn ghost" role="button" for="importInput">보정 데이터 불러오기</label>
+                <input id="importInput" type="file" accept="application/json">
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Samples</span>
+                <h2>저장된 정답 렌즈</h2>
+              </div>
+              <button id="clearSamplesBtn" class="btn ghost" type="button">전체 삭제</button>
+            </div>
+            <div class="cal-body">
+              <div id="sampleList" class="sample-list"></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="historyView" class="view">
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">MEASUREMENT HISTORY</span>
+              <h2>측정 이력</h2>
+            </div>
+            <span id="historyCountPill" class="status-pill">0개 저장됨</span>
+          </div>
+          <p style="margin: 0 22px 14px; color: var(--muted); font-size: .84rem;">
+            분석에 성공할 때마다 결과가 자동으로 이 기기에 저장됩니다. 처방·판매 목적이 아닌 개인 참고용 기록입니다.
+          </p>
+          <div class="history-toolbar">
+            <span style="color:var(--muted); font-size:.8rem;">최근 측정이 위에 표시됩니다</span>
+            <button id="clearHistoryBtn" class="btn ghost" type="button">전체 삭제</button>
+          </div>
+          <div id="historyList" class="history-list">
+            <div class="empty-list">아직 저장된 측정 이력이 없습니다.<br>렌즈 측정 탭에서 분석을 완료하면 여기에 쌓입니다.</div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <div id="guideModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="guideModalTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="guideModalTitle">지침</h2>
+        <button id="closeGuideBtn" class="icon-only-btn" type="button" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-section">
+          <h3>📐 측정 순서</h3>
+          <ol class="guide-steps">
+            <li class="guide-step"><span class="guide-step-num">1</span><p>다른 PC·태블릿·모니터에서 <strong>광학 타깃</strong> 탭의 격자를 전체 화면으로 표시하세요.</p></li>
+            <li class="guide-step"><span class="guide-step-num">2</span><p>카메라가 격자 화면을 향하도록 정렬하고, 격자가 화면 사각형을 채우도록 맞추세요.</p></li>
+            <li class="guide-step"><span class="guide-step-num">3</span><p>안경(단초점 렌즈 권장)을 화면과 휴대폰 사이 중간쯤에 수평으로 들어 주세요.</p></li>
+            <li class="guide-step"><span class="guide-step-num">4</span><p>격자 중심이 렌즈 중앙에 오도록 맞춘 뒤 촬영하세요.</p></li>
+          </ol>
+        </div>
+        <div class="modal-section">
+          <h3>📷 카메라 컨트롤</h3>
+          <ul class="guide-tip-list">
+            <li>격자 정렬 가이드를 켜면 화면 속 격자를 사각형 안에 맞추기 쉬워집니다.</li>
+            <li>안경테 가이드를 켜면 렌즈 위치를 화면 중앙에 맞추는 데 도움이 됩니다.</li>
+            <li>기기가 지원하면 플래시를 켜고 끌 수 있습니다.</li>
+          </ul>
+        </div>
+        <div class="modal-section">
+          <h3>💡 최적 결과를 위한 팁</h3>
+          <ul class="guide-tip-list">
+            <li>격자 화면은 밝고 균일하게 빛나도록 밝기를 최대로 설정하세요.</li>
+            <li>렌즈를 흔들리지 않게 프레임 중앙에 수평으로 고정하세요.</li>
+            <li>화면 반사나 실내조명 반사가 렌즈에 비치지 않는 각도를 찾으세요.</li>
+            <li>같은 렌즈를 3회 측정해 값이 비슷하게 모이는지 확인하세요.</li>
+          </ul>
+        </div>
+        <div class="modal-section">
+          <h3>🕒 측정 이력</h3>
+          <p style="margin:0; color:#d8e8f7; font-size:.88rem;">결과는 자동으로 이력에 저장됩니다. 상단의 "측정 이력" 탭에서 과거 결과를 검토하세요. 기록을 삭제하려면 각 항목의 × 버튼을 누르거나 "전체 삭제"를 탭하세요.</p>
+        </div>
+        <div class="modal-disclaimer">
+          <span aria-hidden="true">⚠</span>
+          <span>이 앱은 단초점 렌즈 도수의 <strong>대략적인 추정</strong>만을 제공하는 광학식 연구용 프로토타입입니다. 전통적인 렌즈미터나 전문 검안을 대신할 수 없으며, 결과는 실제와 다를 수 있고 <strong>처방·판매 목적으로 사용되어서는 안 됩니다.</strong></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="sourceCanvas" class="hidden"></canvas>
+  <canvas id="liveCanvas" class="hidden"></canvas>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    var $ = function (id) { return document.getElementById(id); };
+    var state = {
+      stream: null,
+      imageReady: false,
+      points: [],
+      center: null,
+      radius: 0,
+      rawVector: null,
+      currentReading: null,
+      readings: [],
+      calibrationSamples: loadSamples(),
+      gridBasis: null,
+      targetWakeLock: null,
+      cylFormat: "minus",
+      history: loadHistory(),
+      gridGuideOn: false,
+      glassesGuideOn: false,
+      torchOn: false,
+      torchSupported: false,
+      liveScanning: false,
+      liveTimer: null,
+      liveSamples: [],
+      livePeak: null,
+      liveLastEstimate: null
+    };
+
+    var els = {
+      video: $("cameraVideo"),
+      source: $("sourceCanvas"),
+      liveSource: $("liveCanvas"),
+      canvas: $("analysisCanvas"),
+      empty: $("emptyStage"),
+      stageMessage: $("stageMessage"),
+      status: $("captureStatus"),
+      adjustments: $("adjustments"),
+      resultPlaceholder: $("resultPlaceholder"),
+      resultContent: $("resultContent"),
+      toast: $("toast")
+    };
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function median(values) {
+      if (!values.length) return NaN;
+      var sorted = values.slice().sort(function (a, b) { return a - b; });
+      var mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+
+    function angleDistance(a, b) {
+      var d = Math.abs(a - b) % Math.PI;
+      return Math.min(d, Math.PI - d);
+    }
+
+    function normalizeAxis(deg) {
+      var value = deg % 180;
+      if (value < 0) value += 180;
+      if (value > 179.5) value = 180;
+      return value;
+    }
+
+    function roundQuarter(value) {
+      return Math.round(value * 4) / 4;
+    }
+
+    function formatPower(value) {
+      if (!Number.isFinite(value)) return "—";
+      var v = Math.abs(value) < .005 ? 0 : value;
+      return (v >= 0 ? "+" : "") + v.toFixed(2);
+    }
+
+    function measurementGeometry(totalDistanceMm, lensPositionPercent) {
+      var total = Number(totalDistanceMm);
+      var position = Number(lensPositionPercent) / 100;
+      if (!Number.isFinite(total) || total <= 0) throw new Error("휴대폰–화면 거리를 확인해 주세요.");
+      if (!Number.isFinite(position) || position <= 0 || position >= 1) throw new Error("렌즈 위치를 확인해 주세요.");
+      var cameraLensMm = total * position;
+      var lensScreenMm = total - cameraLensMm;
+      var effectiveMm = cameraLensMm * lensScreenMm / total;
+      return {
+        totalMm: total,
+        positionPercent: position * 100,
+        cameraLensMm: cameraLensMm,
+        lensScreenMm: lensScreenMm,
+        effectiveMm: effectiveMm,
+        effectiveM: effectiveMm / 1000
+      };
+    }
+
+    function transposeRx(rx) {
+      return {
+        sph: rx.sph + rx.cyl,
+        cyl: -rx.cyl,
+        axis: normalizeAxis(rx.axis + 90)
+      };
+    }
+
+    function displayRx(rx) {
+      return state.cylFormat === "plus" ? transposeRx(rx) : {
+        sph: rx.sph,
+        cyl: rx.cyl,
+        axis: rx.axis
+      };
+    }
+
+    function rxToVector(sph, cyl, axis) {
+      var a = axis * Math.PI / 180;
+      return {
+        M: sph + cyl / 2,
+        J0: (-cyl / 2) * Math.cos(2 * a),
+        J45: (-cyl / 2) * Math.sin(2 * a)
+      };
+    }
+
+    function vectorToRx(vector) {
+      var magnitude = Math.sqrt(vector.J0 * vector.J0 + vector.J45 * vector.J45);
+      var cyl = -2 * magnitude;
+      var axis = normalizeAxis(.5 * Math.atan2(vector.J45, vector.J0) * 180 / Math.PI);
+      var sph = vector.M - cyl / 2;
+      return { sph: sph, cyl: cyl, axis: axis };
+    }
+
+    function showToast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(function () { els.toast.classList.remove("show"); }, 2400);
+    }
+
+    function setView(viewId) {
+      document.querySelectorAll(".view").forEach(function (view) {
+        view.classList.toggle("active", view.id === viewId);
+      });
+      document.querySelectorAll(".tab").forEach(function (tab) {
+        tab.classList.toggle("active", tab.dataset.view === viewId);
+      });
+      if (viewId === "targetView") {
+        requestAnimationFrame(drawTarget);
+      }
+      if (viewId === "calibrationView") renderCalibration();
+      if (viewId === "historyView") renderHistory();
+    }
+
+    function loadHistory() {
+      try {
+        var parsed = JSON.parse(localStorage.getItem("lensAxisHistoryV1") || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function persistHistory() {
+      localStorage.setItem("lensAxisHistoryV1", JSON.stringify(state.history));
+    }
+
+    function addHistoryEntry(reading) {
+      var shown = displayRx(reading.rx);
+      state.history.unshift({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        createdAt: new Date().toISOString(),
+        rx: reading.rx,
+        shown: shown,
+        quality: reading.quality,
+        cylFormat: state.cylFormat
+      });
+      if (state.history.length > 50) state.history.length = 50;
+      persistHistory();
+      renderHistory();
+    }
+
+    function deleteHistoryEntry(id) {
+      state.history = state.history.filter(function (item) { return item.id !== id; });
+      persistHistory();
+      renderHistory();
+    }
+
+    function renderHistory() {
+      var count = state.history.length;
+      $("historyCountPill").textContent = count + "개 저장됨";
+      $("historyCountPill").classList.toggle("ready", count > 0);
+      if (!count) {
+        $("historyList").innerHTML = '<div class="empty-list">아직 저장된 측정 이력이 없습니다.<br>렌즈 측정 탭에서 분석을 완료하면 여기에 쌓입니다.</div>';
+        return;
+      }
+      $("historyList").innerHTML = state.history.map(function (item) {
+        var shown = displayRx(item.rx);
+        var axisAvailable = Math.abs(shown.cyl) >= .25;
+        var date = new Date(item.createdAt);
+        return '<div class="history-item"><div><strong>SPH ' + formatPower(roundQuarter(shown.sph)) +
+          ' · CYL ' + formatPower(roundQuarter(shown.cyl)) +
+          (axisAvailable ? ' × ' + Math.round(shown.axis) + '°' : '') +
+          '</strong><span>' + date.toLocaleString("ko-KR") + ' · <span class="quality-tag">품질 ' + item.quality + '%</span></span></div>' +
+          '<button class="icon-btn" type="button" data-delete-history="' + item.id + '" aria-label="이력 삭제">×</button></div>';
+      }).join("");
+      document.querySelectorAll("[data-delete-history]").forEach(function (button) {
+        button.addEventListener("click", function () { deleteHistoryEntry(button.dataset.deleteHistory); });
+      });
+    }
+
+    function openGuideModal() {
+      $("guideModal").classList.remove("hidden");
+    }
+
+    function closeGuideModal() {
+      $("guideModal").classList.add("hidden");
+    }
+
+    function updateCameraToggleUi() {
+      $("gridGuideToggle").classList.toggle("on", state.gridGuideOn);
+      $("glassesGuideToggle").classList.toggle("on", state.glassesGuideOn);
+      $("flashToggle").classList.toggle("on", state.torchOn);
+      $("gridAlignGuide").classList.toggle("on", state.gridGuideOn);
+      $("glassesGuide").classList.toggle("on", state.glassesGuideOn);
+    }
+
+    function toggleGridGuide() {
+      state.gridGuideOn = !state.gridGuideOn;
+      updateCameraToggleUi();
+    }
+
+    function toggleGlassesGuide() {
+      state.glassesGuideOn = !state.glassesGuideOn;
+      updateCameraToggleUi();
+    }
+
+    async function toggleFlash() {
+      if (!state.stream) return;
+      var track = state.stream.getVideoTracks()[0];
+      if (!track) return;
+      try {
+        state.torchOn = !state.torchOn;
+        await track.applyConstraints({ advanced: [{ torch: state.torchOn }] });
+        updateCameraToggleUi();
+      } catch (error) {
+        state.torchOn = false;
+        showToast("이 기기·브라우저에서는 플래시를 제어할 수 없습니다.");
+        updateCameraToggleUi();
+      }
+    }
+
+    document.querySelectorAll(".tab").forEach(function (tab) {
+      tab.addEventListener("click", function () { setView(tab.dataset.view); });
+    });
+
+    async function startCamera() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showToast("이 환경에서는 실시간 카메라를 열 수 없습니다. 사진 촬영·선택을 사용하세요.");
+        return;
+      }
+      stopCamera();
+      try {
+        state.stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1920 },
+            height: { ideal: 1440 }
+          },
+          audio: false
+        });
+        els.video.srcObject = state.stream;
+        await els.video.play();
+        els.video.classList.remove("hidden");
+        els.canvas.classList.add("hidden");
+        els.empty.classList.add("hidden");
+        els.stageMessage.classList.remove("hidden");
+        $("captureBtn").classList.remove("hidden");
+        $("cameraToggleRow").classList.remove("hidden");
+        els.status.textContent = "카메라 준비";
+        els.status.classList.add("ready");
+        var track = state.stream.getVideoTracks()[0];
+        state.torchOn = false;
+        state.torchSupported = !!(track && track.getCapabilities && track.getCapabilities().torch);
+        $("flashToggle").classList.toggle("hidden", !state.torchSupported);
+        updateCameraToggleUi();
+      } catch (error) {
+        showToast("카메라 권한을 확인하거나 사진 촬영·선택을 사용하세요.");
+      }
+    }
+
+    function stopCamera() {
+      if (state.stream) {
+        state.stream.getTracks().forEach(function (track) { track.stop(); });
+        state.stream = null;
+      }
+      els.video.srcObject = null;
+      state.torchOn = false;
+      state.torchSupported = false;
+      $("cameraToggleRow").classList.add("hidden");
+      $("flashToggle").classList.add("hidden");
+      stopLiveScan();
+    }
+
+    function drawSparkline(canvas, values, colorVar) {
+      if (!canvas) return;
+      var ratio = Math.min(2, window.devicePixelRatio || 1);
+      var cssWidth = canvas.clientWidth || 100;
+      var cssHeight = canvas.clientHeight || 34;
+      canvas.width = Math.round(cssWidth * ratio);
+      canvas.height = Math.round(cssHeight * ratio);
+      var ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!values.length) return;
+      var min = Math.min.apply(null, values);
+      var max = Math.max.apply(null, values);
+      if (max - min < .001) { max += .5; min -= .5; }
+      var padX = 3 * ratio;
+      var padY = 4 * ratio;
+      var w = canvas.width - padX * 2;
+      var h = canvas.height - padY * 2;
+      ctx.strokeStyle = colorVar;
+      ctx.lineWidth = Math.max(1.4, 1.6 * ratio);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      values.forEach(function (value, index) {
+        var x = padX + (values.length === 1 ? w : (w * index / (values.length - 1)));
+        var y = padY + h - ((value - min) / (max - min)) * h;
+        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      var lastX = padX + w;
+      var lastY = padY + h - ((values[values.length - 1] - min) / (max - min)) * h;
+      ctx.fillStyle = colorVar;
+      ctx.beginPath();
+      ctx.arc(lastX, lastY, 2.6 * ratio, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function standardDeviation(values) {
+      if (values.length < 2) return 0;
+      var mean = values.reduce(function (a, b) { return a + b; }, 0) / values.length;
+      var variance = values.reduce(function (a, b) { return a + (b - mean) * (b - mean); }, 0) / values.length;
+      return Math.sqrt(variance);
+    }
+
+    function averageVector(vectors) {
+      var sum = { M: 0, J0: 0, J45: 0 };
+      vectors.forEach(function (v) {
+        sum.M += v.M / vectors.length;
+        sum.J0 += v.J0 / vectors.length;
+        sum.J45 += v.J45 / vectors.length;
+      });
+      return sum;
+    }
+
+    function startLiveScan() {
+      if (!state.stream || !els.video.videoWidth) {
+        showToast("먼저 카메라를 켜고 격자를 향하게 해 주세요.");
+        return;
+      }
+      state.liveScanning = true;
+      state.liveSamples = [];
+      state.livePeak = null;
+      state.liveLastEstimate = null;
+      $("liveScanToggle").classList.add("on");
+      $("livePanel").classList.remove("hidden");
+      $("liveSaveBtn").disabled = true;
+      updateLivePanel();
+      clearInterval(state.liveTimer);
+      state.liveTimer = setInterval(liveScanTick, 260);
+    }
+
+    function stopLiveScan() {
+      state.liveScanning = false;
+      clearInterval(state.liveTimer);
+      state.liveTimer = null;
+      $("liveScanToggle").classList.remove("on");
+    }
+
+    function toggleLiveScan() {
+      if (state.liveScanning) stopLiveScan();
+      else startLiveScan();
+    }
+
+    function resetLiveScan() {
+      state.liveSamples = [];
+      state.livePeak = null;
+      state.liveLastEstimate = null;
+      updateLivePanel();
+      showToast("실시간 측정을 초기화했습니다.");
+    }
+
+    function liveScanTick() {
+      if (!els.video.videoWidth) return;
+      var maxSide = 760;
+      var scale = Math.min(1, maxSide / Math.max(els.video.videoWidth, els.video.videoHeight));
+      var canvas = els.liveSource;
+      canvas.width = Math.round(els.video.videoWidth * scale);
+      canvas.height = Math.round(els.video.videoHeight * scale);
+      canvas.getContext("2d").drawImage(els.video, 0, 0, canvas.width, canvas.height);
+      var points = detectBlueDots(canvas);
+      var center = { x: canvas.width / 2, y: canvas.height / 2 };
+      var radius = Math.min(canvas.width, canvas.height) * Number($("radiusSlider").value) / 100;
+      try {
+        var estimate = estimateLens(
+          points, center, radius,
+          Number($("cameraScreenSlider").value),
+          Number($("lensPositionSlider").value)
+        );
+        var calibratedVector = applyCalibration(estimate.rawVector);
+        var rx = vectorToRx(calibratedVector);
+        var sample = { vector: calibratedVector, rx: rx, quality: estimate.quality };
+        state.liveSamples.push(sample);
+        if (state.liveSamples.length > 150) state.liveSamples.shift();
+        if (!state.livePeak || sample.quality > state.livePeak.quality) state.livePeak = sample;
+        state.liveLastEstimate = estimate;
+      } catch (error) {
+        // Skip this frame silently — expected while aligning the lens.
+      }
+      updateLivePanel();
+    }
+
+    function updateLivePanel() {
+      var samples = state.liveSamples;
+      $("liveScanCount").textContent = String(samples.length);
+      $("liveSaveBtn").disabled = samples.length < 8;
+      if (!samples.length) {
+        ["liveSph", "liveCyl", "liveAxis", "peakSph", "peakCyl", "peakAxis", "meanSph", "meanCyl", "meanAxis"].forEach(function (id) {
+          $(id).textContent = "—";
+        });
+        $("liveStatusPill").textContent = "대기 중";
+        $("liveStatusPill").className = "live-status settling";
+        drawSparkline($("sphSpark"), [], "#31e6b2");
+        drawSparkline($("cylSpark"), [], "#16c8ed");
+        drawSparkline($("axisSpark"), [], "#ffb454");
+        return;
+      }
+      var latest = samples[samples.length - 1];
+      var liveShown = displayRx(latest.rx);
+      $("liveSph").textContent = formatPower(roundQuarter(liveShown.sph));
+      $("liveCyl").textContent = formatPower(roundQuarter(liveShown.cyl));
+      $("liveAxis").textContent = Math.round(liveShown.axis) + "°";
+
+      var peakShown = displayRx(state.livePeak.rx);
+      $("peakSph").textContent = formatPower(roundQuarter(peakShown.sph));
+      $("peakCyl").textContent = formatPower(roundQuarter(peakShown.cyl));
+      $("peakAxis").textContent = Math.round(peakShown.axis) + "°";
+
+      var recentWindow = samples.slice(-40);
+      var meanVector = averageVector(recentWindow.map(function (s) { return s.vector; }));
+      var meanRx = vectorToRx(meanVector);
+      var meanShown = displayRx(meanRx);
+      $("meanSph").textContent = formatPower(roundQuarter(meanShown.sph));
+      $("meanCyl").textContent = formatPower(roundQuarter(meanShown.cyl));
+      $("meanAxis").textContent = Math.round(meanShown.axis) + "°";
+
+      var sphSeries = recentWindow.map(function (s) { return displayRx(s.rx).sph; });
+      var cylSeries = recentWindow.map(function (s) { return displayRx(s.rx).cyl; });
+      var axisSeries = recentWindow.map(function (s) { return displayRx(s.rx).axis; });
+      drawSparkline($("sphSpark"), sphSeries, "#31e6b2");
+      drawSparkline($("cylSpark"), cylSeries, "#16c8ed");
+      drawSparkline($("axisSpark"), axisSeries, "#ffb454");
+
+      var recentSph = sphSeries.slice(-15);
+      var spread = standardDeviation(recentSph);
+      var statusPill = $("liveStatusPill");
+      if (samples.length < 15 || spread > .45) {
+        statusPill.textContent = "불안정 · 흔들림";
+        statusPill.className = "live-status moving";
+      } else if (spread > .18) {
+        statusPill.textContent = "안정화 중";
+        statusPill.className = "live-status settling";
+      } else {
+        statusPill.textContent = "안정됨";
+        statusPill.className = "live-status stable";
+      }
+    }
+
+    function saveLiveReading() {
+      if (!state.liveSamples.length || !state.liveLastEstimate) return;
+      var recentWindow = state.liveSamples.slice(-40);
+      var meanVector = averageVector(recentWindow.map(function (s) { return s.vector; }));
+      var meanRx = vectorToRx(meanVector);
+      var avgQuality = Math.round(recentWindow.reduce(function (sum, s) { return sum + s.quality; }, 0) / recentWindow.length);
+      state.currentReading = {
+        vector: meanVector,
+        rawVector: state.liveLastEstimate.rawVector,
+        rx: meanRx,
+        rawRx: state.liveLastEstimate.rawRx,
+        quality: avgQuality,
+        insideCount: state.liveLastEstimate.insideCount,
+        outsideCount: state.liveLastEstimate.outsideCount,
+        scales: state.liveLastEstimate.scales,
+        geometry: state.liveLastEstimate.geometry
+      };
+      renderResult(state.currentReading);
+      addHistoryEntry(state.currentReading);
+      showToast(recentWindow.length + "회 스캔 평균값을 저장했습니다.");
+    }
+
+    function drawVideoFrame() {
+      if (!els.video.videoWidth) return;
+      var maxSide = 1400;
+      var scale = Math.min(1, maxSide / Math.max(els.video.videoWidth, els.video.videoHeight));
+      els.source.width = Math.round(els.video.videoWidth * scale);
+      els.source.height = Math.round(els.video.videoHeight * scale);
+      els.source.getContext("2d").drawImage(els.video, 0, 0, els.source.width, els.source.height);
+      prepareImage();
+      stopCamera();
+      $("livePanel").classList.add("hidden");
+    }
+
+    function loadPhoto(file) {
+      if (!file) return;
+      var image = new Image();
+      var url = URL.createObjectURL(file);
+      image.onload = function () {
+        var maxSide = 1400;
+        var scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+        els.source.width = Math.round(image.naturalWidth * scale);
+        els.source.height = Math.round(image.naturalHeight * scale);
+        els.source.getContext("2d").drawImage(image, 0, 0, els.source.width, els.source.height);
+        URL.revokeObjectURL(url);
+        stopCamera();
+        prepareImage();
+      };
+      image.onerror = function () {
+        URL.revokeObjectURL(url);
+        showToast("사진을 불러오지 못했습니다.");
+      };
+      image.src = url;
+    }
+
+    function prepareImage(centerOverride, radiusOverride) {
+      state.imageReady = true;
+      state.points = detectBlueDots(els.source);
+      els.canvas.width = els.source.width;
+      els.canvas.height = els.source.height;
+      state.center = centerOverride || { x: els.canvas.width / 2, y: els.canvas.height / 2 };
+      state.radius = radiusOverride || Math.min(els.canvas.width, els.canvas.height) * Number($("radiusSlider").value) / 100;
+      els.video.classList.add("hidden");
+      els.empty.classList.add("hidden");
+      els.canvas.classList.remove("hidden");
+      els.stageMessage.classList.remove("hidden");
+      els.stageMessage.textContent = "렌즈 중심을 터치하고 원의 크기를 맞추세요";
+      els.adjustments.classList.remove("hidden");
+      $("captureBtn").classList.add("hidden");
+      els.status.textContent = "렌즈 영역 설정";
+      els.status.classList.add("ready");
+      updateAnalysisChips();
+      drawOverlay();
+    }
+
+    function detectBlueDots(canvas) {
+      var ctx = canvas.getContext("2d", { willReadFrequently: true });
+      var image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      var w = canvas.width;
+      var h = canvas.height;
+      var count = w * h;
+      var mask = new Uint8Array(count);
+      var visited = new Uint8Array(count);
+      var data = image.data;
+      var i;
+
+      for (i = 0; i < count; i++) {
+        var k = i * 4;
+        var r = data[k];
+        var g = data[k + 1];
+        var b = data[k + 2];
+        if (b > 105 && g > 55 && b - r > 48 && b - g > 25 && g - r > 4) mask[i] = 1;
+      }
+
+      var components = [];
+      var minArea = Math.max(5, Math.round(count / 240000));
+      var maxArea = Math.round(count * .0035);
+      var stack = [];
+
+      for (i = 0; i < count; i++) {
+        if (!mask[i] || visited[i]) continue;
+        stack.length = 0;
+        stack.push(i);
+        visited[i] = 1;
+        var area = 0;
+        var sx = 0;
+        var sy = 0;
+        var minX = w;
+        var maxX = 0;
+        var minY = h;
+        var maxY = 0;
+
+        while (stack.length) {
+          var current = stack.pop();
+          var x = current % w;
+          var y = (current / w) | 0;
+          area++;
+          sx += x;
+          sy += y;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+
+          var next;
+          if (x > 0) {
+            next = current - 1;
+            if (mask[next] && !visited[next]) { visited[next] = 1; stack.push(next); }
+          }
+          if (x + 1 < w) {
+            next = current + 1;
+            if (mask[next] && !visited[next]) { visited[next] = 1; stack.push(next); }
+          }
+          if (y > 0) {
+            next = current - w;
+            if (mask[next] && !visited[next]) { visited[next] = 1; stack.push(next); }
+          }
+          if (y + 1 < h) {
+            next = current + w;
+            if (mask[next] && !visited[next]) { visited[next] = 1; stack.push(next); }
+          }
+        }
+
+        if (area < minArea || area > maxArea) continue;
+        var bw = maxX - minX + 1;
+        var bh = maxY - minY + 1;
+        var ratio = bw / bh;
+        var fill = area / (bw * bh);
+        if (ratio < .38 || ratio > 2.65 || fill < .24) continue;
+        if (bw > Math.min(w, h) * .075 || bh > Math.min(w, h) * .075) continue;
+        components.push({ x: sx / area, y: sy / area, area: area, width: bw, height: bh });
+      }
+      return components;
+    }
+
+    function nearestMedian(points) {
+      if (points.length < 3) return NaN;
+      var distances = [];
+      for (var i = 0; i < points.length; i++) {
+        var best = Infinity;
+        for (var j = 0; j < points.length; j++) {
+          if (i === j) continue;
+          var dx = points[j].x - points[i].x;
+          var dy = points[j].y - points[i].y;
+          var d = Math.sqrt(dx * dx + dy * dy);
+          if (d < best) best = d;
+        }
+        if (Number.isFinite(best)) distances.push(best);
+      }
+      return median(distances);
+    }
+
+    function vectorCandidates(points, minDistance, maxDistance) {
+      var vectors = [];
+      for (var i = 0; i < points.length; i++) {
+        for (var j = i + 1; j < points.length; j++) {
+          var dx = points[j].x - points[i].x;
+          var dy = points[j].y - points[i].y;
+          var d = Math.sqrt(dx * dx + dy * dy);
+          if (d >= minDistance && d <= maxDistance) {
+            vectors.push({ i: i, j: j, x: dx, y: dy, length: d, angle: Math.atan2(dy, dx) });
+          }
+        }
+      }
+      return vectors;
+    }
+
+    function robustAxisVector(vectors, axisAngle, expected, tolerance) {
+      var nearest = new Map();
+      vectors.forEach(function (v) {
+        if (angleDistance(v.angle, axisAngle) > tolerance) return;
+        if (v.length < expected * .34 || v.length > expected * 1.82) return;
+        [v.i, v.j].forEach(function (pointIndex) {
+          var current = nearest.get(pointIndex);
+          if (!current || v.length < current.length) nearest.set(pointIndex, v);
+        });
+      });
+      var selected = [];
+      var seen = new Set();
+      nearest.forEach(function (v) {
+        var key = v.i < v.j ? v.i + ":" + v.j : v.j + ":" + v.i;
+        if (!seen.has(key)) {
+          seen.add(key);
+          selected.push(v);
+        }
+      });
+      var xs = [];
+      var ys = [];
+      var lengths = [];
+      var ux = Math.cos(axisAngle);
+      var uy = Math.sin(axisAngle);
+      selected.forEach(function (v) {
+        var sign = v.x * ux + v.y * uy >= 0 ? 1 : -1;
+        xs.push(v.x * sign);
+        ys.push(v.y * sign);
+        lengths.push(v.length);
+      });
+      if (xs.length < 3) return null;
+      var vx = median(xs);
+      var vy = median(ys);
+      var medLength = median(lengths);
+      var deviations = lengths.map(function (v) { return Math.abs(v - medLength); });
+      var variability = median(deviations) / Math.max(1, medLength);
+      return { x: vx, y: vy, length: Math.sqrt(vx * vx + vy * vy), variability: variability, count: xs.length };
+    }
+
+    function estimateOutsideBasis(points) {
+      var pitch = nearestMedian(points);
+      if (!Number.isFinite(pitch)) return null;
+      var vectors = vectorCandidates(points, pitch * .55, pitch * 1.75);
+      if (vectors.length < 10) return null;
+      var bins = new Array(90).fill(0);
+      vectors.forEach(function (v) {
+        var a = v.angle % Math.PI;
+        if (a < 0) a += Math.PI;
+        var bin = Math.min(89, Math.floor(a / Math.PI * 90));
+        var proximity = Math.exp(-Math.pow((v.length / pitch - 1) / .48, 2));
+        bins[bin] += .25 + proximity;
+      });
+      var first = 0;
+      for (var i = 1; i < bins.length; i++) if (bins[i] > bins[first]) first = i;
+      var second = -1;
+      var secondScore = -1;
+      for (i = 0; i < bins.length; i++) {
+        var delta = Math.abs(i - first);
+        delta = Math.min(delta, 90 - delta);
+        if (delta >= 36 && delta <= 54 && bins[i] > secondScore) {
+          second = i;
+          secondScore = bins[i];
+        }
+      }
+      if (second < 0) return null;
+      var angleA = (first + .5) / 90 * Math.PI;
+      var angleB = (second + .5) / 90 * Math.PI;
+      var vecA = robustAxisVector(vectors, angleA, pitch, 16 * Math.PI / 180);
+      var vecB = robustAxisVector(vectors, angleB, pitch * 1.25, 16 * Math.PI / 180) ||
+                 robustAxisVector(vectors, angleB, pitch, 18 * Math.PI / 180);
+      if (!vecA || !vecB) return null;
+      var xVector = vecA.length <= vecB.length ? vecA : vecB;
+      var yVector = vecA.length <= vecB.length ? vecB : vecA;
+      var cross = xVector.x * yVector.y - xVector.y * yVector.x;
+      if (cross < 0) {
+        yVector = {
+          x: -yVector.x,
+          y: -yVector.y,
+          length: yVector.length,
+          variability: yVector.variability,
+          count: yVector.count
+        };
+      }
+      return { x: xVector, y: yVector, pitch: pitch, vectors: vectors };
+    }
+
+    function estimateLens(points, center, radius, totalDistanceMm, lensPositionPercent) {
+      var inside = [];
+      var outside = [];
+      points.forEach(function (point) {
+        var dx = point.x - center.x;
+        var dy = point.y - center.y;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        if (d < radius * .68) inside.push(point);
+        else if (d > radius * 1.08 && d < radius * 2.75) outside.push(point);
+      });
+      if (outside.length < 22) {
+        outside = points.filter(function (point) {
+          var dx = point.x - center.x;
+          var dy = point.y - center.y;
+          return Math.sqrt(dx * dx + dy * dy) > radius * 1.05;
+        });
+      }
+      if (inside.length < 8) throw new Error("렌즈 안쪽 파란 점이 부족합니다. 원을 조정하거나 더 가까이 촬영해 주세요.");
+      if (outside.length < 18) throw new Error("렌즈 바깥쪽 기준점이 부족합니다. 안경 주변의 타깃까지 보이게 촬영해 주세요.");
+
+      var outsideBasis = estimateOutsideBasis(outside);
+      if (!outsideBasis) throw new Error("기준 격자의 가로·세로 방향을 찾지 못했습니다. 휴대폰을 화면과 평행하게 맞춰 주세요.");
+      var insidePitch = nearestMedian(inside);
+      var minPitch = Math.min(outsideBasis.x.length, outsideBasis.y.length);
+      var maxPitch = Math.max(outsideBasis.x.length, outsideBasis.y.length);
+      var insideVectors = vectorCandidates(inside, minPitch * .35, maxPitch * 1.9);
+      var angleX = Math.atan2(outsideBasis.x.y, outsideBasis.x.x);
+      var angleY = Math.atan2(outsideBasis.y.y, outsideBasis.y.x);
+      var insideX = robustAxisVector(insideVectors, angleX, outsideBasis.x.length, 34 * Math.PI / 180);
+      var insideY = robustAxisVector(insideVectors, angleY, outsideBasis.y.length, 34 * Math.PI / 180);
+      if (!insideX || !insideY) throw new Error("렌즈 안의 격자 변형을 분리하지 못했습니다. 렌즈 중심과 범위를 다시 맞춰 주세요.");
+
+      var b00 = outsideBasis.x.x;
+      var b10 = outsideBasis.x.y;
+      var b01 = outsideBasis.y.x;
+      var b11 = outsideBasis.y.y;
+      var determinant = b00 * b11 - b01 * b10;
+      if (Math.abs(determinant) < 1e-5) throw new Error("격자 방향이 불안정합니다. 정면에서 다시 촬영해 주세요.");
+      var inv00 = b11 / determinant;
+      var inv01 = -b01 / determinant;
+      var inv10 = -b10 / determinant;
+      var inv11 = b00 / determinant;
+
+      var i00 = insideX.x;
+      var i10 = insideX.y;
+      var i01 = insideY.x;
+      var i11 = insideY.y;
+      var a00 = i00 * inv00 + i01 * inv10;
+      var a01 = i00 * inv01 + i01 * inv11;
+      var a10 = i10 * inv00 + i11 * inv10;
+      var a11 = i10 * inv01 + i11 * inv11;
+
+      var c00 = a00 * a00 + a10 * a10;
+      var c01 = a00 * a01 + a10 * a11;
+      var c11 = a01 * a01 + a11 * a11;
+      var trace = c00 + c11;
+      var disc = Math.sqrt(Math.max(0, (c00 - c11) * (c00 - c11) + 4 * c01 * c01));
+      var lambdaMax = Math.max(1e-6, (trace + disc) / 2);
+      var lambdaMin = Math.max(1e-6, (trace - disc) / 2);
+      var scaleMax = Math.sqrt(lambdaMax);
+      var scaleMin = Math.sqrt(lambdaMin);
+      var principalAngle = .5 * Math.atan2(2 * c01, c00 - c11);
+      var targetAngle = Math.atan2(outsideBasis.x.y, outsideBasis.x.x);
+      var frameAngle = Number($("frameAngleSlider").value) * Math.PI / 180;
+      var axisRelative = normalizeAxis((principalAngle - targetAngle - frameAngle) * 180 / Math.PI);
+      var geometry = measurementGeometry(totalDistanceMm, lensPositionPercent);
+      if (geometry.effectiveM < .04) throw new Error("유효 광학거리가 너무 짧습니다. 휴대폰과 화면 간격을 늘려 주세요.");
+      // Paraxial thin-lens model: m = 1 / (1 - eF), e = ab / (a + b).
+      var powerMax = (1 - 1 / scaleMax) / geometry.effectiveM;
+      var powerMin = (1 - 1 / scaleMin) / geometry.effectiveM;
+      var sph = Math.max(powerMax, powerMin);
+      var cyl = Math.min(powerMax, powerMin) - sph;
+      if (powerMax < powerMin) axisRelative = normalizeAxis(axisRelative + 90);
+      var rawVector = rxToVector(sph, cyl, axisRelative);
+
+      var ortho = Math.abs(
+        (outsideBasis.x.x * outsideBasis.y.x + outsideBasis.x.y * outsideBasis.y.y) /
+        Math.max(1, outsideBasis.x.length * outsideBasis.y.length)
+      );
+      var variability = clamp((outsideBasis.x.variability + outsideBasis.y.variability +
+        insideX.variability + insideY.variability) / 4, 0, 1);
+      var countScore = clamp(inside.length / 18, 0, 1) * .5 + clamp(outside.length / 45, 0, 1) * .5;
+      var geometryScore = clamp(1 - variability / .24, 0, 1) * .7 + clamp(1 - ortho / .3, 0, 1) * .3;
+      var quality = Math.round(100 * (.48 * countScore + .52 * geometryScore));
+      if (!state.calibrationSamples.length) quality = Math.min(quality, 68);
+
+      return {
+        rawVector: rawVector,
+        rawRx: { sph: sph, cyl: cyl, axis: axisRelative },
+        scales: [scaleMax, scaleMin],
+        geometry: geometry,
+        quality: quality,
+        insideCount: inside.length,
+        outsideCount: outside.length,
+        targetAngle: targetAngle,
+        insidePitch: insidePitch,
+        basis: { outside: outsideBasis, insideX: insideX, insideY: insideY }
+      };
+    }
+
+    function fitCalibration() {
+      var samples = state.calibrationSamples;
+      if (!samples.length) {
+        return { meanGain: 1, cylGain: 1, re: 1, im: 0, mirrored: false, error: null };
+      }
+      var meanNumerator = 0;
+      var meanDenominator = 0;
+      samples.forEach(function (sample) {
+        meanNumerator += sample.known.M * sample.raw.M;
+        meanDenominator += sample.raw.M * sample.raw.M;
+      });
+      var meanGain = meanDenominator > .0001 ? meanNumerator / meanDenominator : 1;
+      meanGain = clamp(meanGain, .25, 4);
+
+      function fitComplex(mirrored) {
+        var nr = 0;
+        var ni = 0;
+        var den = 0;
+        samples.forEach(function (sample) {
+          var xr = sample.raw.J0;
+          var xi = mirrored ? -sample.raw.J45 : sample.raw.J45;
+          var yr = sample.known.J0;
+          var yi = sample.known.J45;
+          nr += yr * xr + yi * xi;
+          ni += yi * xr - yr * xi;
+          den += xr * xr + xi * xi;
+        });
+        var re = den > .0001 ? nr / den : 1;
+        var im = den > .0001 ? ni / den : 0;
+        var error = 0;
+        samples.forEach(function (sample) {
+          var xr = sample.raw.J0;
+          var xi = mirrored ? -sample.raw.J45 : sample.raw.J45;
+          var pr = re * xr - im * xi;
+          var pi = re * xi + im * xr;
+          error += Math.pow(pr - sample.known.J0, 2) + Math.pow(pi - sample.known.J45, 2);
+        });
+        return { re: re, im: im, error: error, gain: Math.sqrt(re * re + im * im), mirrored: mirrored };
+      }
+
+      var direct = fitComplex(false);
+      var mirror = fitComplex(true);
+      var selected = samples.length >= 2 && mirror.error + 1e-6 < direct.error ? mirror : direct;
+      return {
+        meanGain: meanGain,
+        cylGain: clamp(selected.gain, .25, 4),
+        re: selected.re,
+        im: selected.im,
+        mirrored: selected.mirrored,
+        error: selected.error
+      };
+    }
+
+    function applyCalibration(raw) {
+      var model = fitCalibration();
+      var xr = raw.J0;
+      var xi = model.mirrored ? -raw.J45 : raw.J45;
+      return {
+        M: raw.M * model.meanGain,
+        J0: model.re * xr - model.im * xi,
+        J45: model.re * xi + model.im * xr
+      };
+    }
+
+    function analyzeCurrent() {
+      if (!state.imageReady) return;
+      try {
+        state.radius = Math.min(els.canvas.width, els.canvas.height) * Number($("radiusSlider").value) / 100;
+        var estimate = estimateLens(
+          state.points,
+          state.center,
+          state.radius,
+          Number($("cameraScreenSlider").value),
+          Number($("lensPositionSlider").value)
+        );
+        state.gridBasis = estimate.basis;
+        state.rawVector = estimate.rawVector;
+        var calibratedVector = applyCalibration(estimate.rawVector);
+        var rx = vectorToRx(calibratedVector);
+        state.currentReading = {
+          vector: calibratedVector,
+          rawVector: estimate.rawVector,
+          rx: rx,
+          rawRx: estimate.rawRx,
+          quality: estimate.quality,
+          insideCount: estimate.insideCount,
+          outsideCount: estimate.outsideCount,
+          scales: estimate.scales,
+          geometry: estimate.geometry
+        };
+        renderResult(state.currentReading);
+        updateAnalysisChips(estimate);
+        drawOverlay(estimate);
+        addHistoryEntry(state.currentReading);
+        els.status.textContent = "분석 완료";
+      } catch (error) {
+        state.currentReading = null;
+        state.gridBasis = null;
+        updateAnalysisChips();
+        drawOverlay();
+        showToast(error.message || "분석하지 못했습니다.");
+      }
+    }
+
+    function renderResult(reading) {
+      els.resultPlaceholder.classList.add("hidden");
+      els.resultContent.classList.remove("hidden");
+      var shown = displayRx(reading.rx);
+      var roundedSph = roundQuarter(shown.sph);
+      var roundedCyl = roundQuarter(shown.cyl);
+      var sphericalEquivalent = reading.rx.sph + reading.rx.cyl / 2;
+      var axisAvailable = Math.abs(shown.cyl) >= .25;
+      $("sphValue").textContent = formatPower(roundedSph);
+      $("cylValue").textContent = formatPower(roundedCyl);
+      $("axisValue").textContent = axisAvailable ? Math.round(shown.axis) + "°" : "—";
+      $("seValue").textContent = formatPower(roundQuarter(sphericalEquivalent));
+      $("qualityValue").textContent = reading.quality + "%";
+      $("qualityFill").style.width = reading.quality + "%";
+      $("exactReading").textContent =
+        "계산값 " + formatPower(shown.sph) + " / " + formatPower(shown.cyl) +
+        (axisAvailable ? " × " + shown.axis.toFixed(1) + "°" : "") +
+        " · 배율 " + reading.scales[0].toFixed(4) + " / " + reading.scales[1].toFixed(4) +
+        " · 유효거리 " + reading.geometry.effectiveMm.toFixed(1) + "mm";
+      var alertText;
+      if (!state.calibrationSamples.length) {
+        alertText = "아직 정답 렌즈로 보정되지 않았습니다. 표시값보다 변형 방향과 반복 일관성을 먼저 확인하세요.";
+      } else if (!axisAvailable) {
+        alertText = "난시 성분이 영상 노이즈와 비슷해 축을 표시하지 않았습니다.";
+      } else if (reading.quality < 55) {
+        alertText = "점 인식 품질이 낮습니다. 화면 반사를 줄이고 렌즈 안팎의 점이 더 많이 보이게 다시 촬영하세요.";
+      } else {
+        alertText = "동일 렌즈를 3회 측정해 값이 모이는지 확인한 뒤 렌즈미터 정답과 비교하세요.";
+      }
+      $("resultAlert").textContent = alertText;
+      drawAxisDial(axisAvailable ? shown.axis : null);
+      updateCalibrationBadge();
+    }
+
+    function drawAxisDial(axis) {
+      var canvas = $("axisDial");
+      var ctx = canvas.getContext("2d");
+      var w = canvas.width;
+      var h = canvas.height;
+      var c = w / 2;
+      var r = w * .39;
+      ctx.clearRect(0, 0, w, h);
+      var gradient = ctx.createRadialGradient(c, c, r * .15, c, c, r * 1.2);
+      gradient.addColorStop(0, "rgba(22,200,237,.14)");
+      gradient.addColorStop(1, "rgba(22,119,255,.02)");
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(c, c, r * 1.12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(133,208,255,.22)";
+      ctx.beginPath();
+      ctx.arc(c, c, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(190,226,250,.78)";
+      ctx.font = "700 19px -apple-system, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      [0, 45, 90, 135].forEach(function (deg) {
+        var a = deg * Math.PI / 180;
+        var x = c + Math.cos(a) * (r + 25);
+        var y = c + Math.sin(a) * (r + 25);
+        ctx.fillText(String(deg), x, y);
+      });
+      for (var deg = 0; deg < 180; deg += 10) {
+        var a = deg * Math.PI / 180;
+        var x1 = c + Math.cos(a) * (r - 9);
+        var y1 = c + Math.sin(a) * (r - 9);
+        var x2 = c + Math.cos(a) * r;
+        var y2 = c + Math.sin(a) * r;
+        ctx.strokeStyle = deg % 30 === 0 ? "rgba(167,220,255,.52)" : "rgba(167,220,255,.22)";
+        ctx.lineWidth = deg % 30 === 0 ? 3 : 2;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(c - Math.cos(a) * (r - 9), c - Math.sin(a) * (r - 9));
+        ctx.lineTo(c - Math.cos(a) * r, c - Math.sin(a) * r);
+        ctx.stroke();
+      }
+      if (axis == null) {
+        ctx.fillStyle = "rgba(157,185,211,.66)";
+        ctx.font = "750 42px -apple-system, sans-serif";
+        ctx.fillText("—", c, c);
+        return;
+      }
+      var angle = axis * Math.PI / 180;
+      ctx.strokeStyle = "#39e6c0";
+      ctx.lineWidth = 9;
+      ctx.lineCap = "round";
+      ctx.shadowColor = "rgba(49,230,178,.5)";
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.moveTo(c - Math.cos(angle) * r * .78, c - Math.sin(angle) * r * .78);
+      ctx.lineTo(c + Math.cos(angle) * r * .78, c + Math.sin(angle) * r * .78);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#eafff8";
+      ctx.beginPath();
+      ctx.arc(c, c, 10, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawOverlay(estimate) {
+      if (!state.imageReady) return;
+      var ctx = els.canvas.getContext("2d");
+      ctx.clearRect(0, 0, els.canvas.width, els.canvas.height);
+      ctx.drawImage(els.source, 0, 0);
+      ctx.save();
+      state.points.forEach(function (point) {
+        var dx = point.x - state.center.x;
+        var dy = point.y - state.center.y;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        var inside = d < state.radius * .68;
+        ctx.fillStyle = inside ? "rgba(49,230,178,.9)" : "rgba(22,200,237,.68)";
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, inside ? 3.8 : 2.4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.strokeStyle = "rgba(49,230,178,.95)";
+      ctx.lineWidth = Math.max(3, els.canvas.width / 360);
+      ctx.setLineDash([12, 9]);
+      ctx.beginPath();
+      ctx.arc(state.center.x, state.center.y, state.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#eafff8";
+      ctx.beginPath();
+      ctx.arc(state.center.x, state.center.y, 7, 0, Math.PI * 2);
+      ctx.fill();
+      var targetAngle = estimate ? estimate.targetAngle : 0;
+      var frameAngle = targetAngle + Number($("frameAngleSlider").value) * Math.PI / 180;
+      ctx.strokeStyle = "rgba(255,180,84,.95)";
+      ctx.lineWidth = Math.max(3, els.canvas.width / 420);
+      ctx.beginPath();
+      ctx.moveTo(state.center.x - Math.cos(frameAngle) * state.radius * 1.25, state.center.y - Math.sin(frameAngle) * state.radius * 1.25);
+      ctx.lineTo(state.center.x + Math.cos(frameAngle) * state.radius * 1.25, state.center.y + Math.sin(frameAngle) * state.radius * 1.25);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function updateAnalysisChips(estimate) {
+      $("dotCountChip").textContent = "점 인식 " + state.points.length + "개";
+      var insideCount = state.center ? state.points.filter(function (point) {
+        var dx = point.x - state.center.x;
+        var dy = point.y - state.center.y;
+        return Math.sqrt(dx * dx + dy * dy) < state.radius * .68;
+      }).length : 0;
+      $("insideCountChip").textContent = "렌즈 내부 " + insideCount + "개";
+      $("gridChip").textContent = estimate ? "두 주경선 분리 완료" : "광학 계산 대기";
+    }
+
+    function resetCapture() {
+      stopCamera();
+      state.imageReady = false;
+      state.points = [];
+      state.center = null;
+      state.rawVector = null;
+      state.currentReading = null;
+      state.gridBasis = null;
+      state.liveSamples = [];
+      state.livePeak = null;
+      state.liveLastEstimate = null;
+      $("livePanel").classList.add("hidden");
+      els.video.classList.add("hidden");
+      els.canvas.classList.add("hidden");
+      els.empty.classList.remove("hidden");
+      els.stageMessage.classList.add("hidden");
+      els.adjustments.classList.add("hidden");
+      $("captureBtn").classList.add("hidden");
+      els.status.textContent = "촬영 전";
+      els.status.classList.remove("ready");
+    }
+
+    function addReading() {
+      if (!state.currentReading) return;
+      state.readings.push({
+        vector: state.currentReading.vector,
+        rx: state.currentReading.rx,
+        quality: state.currentReading.quality
+      });
+      if (state.readings.length > 3) state.readings.shift();
+      renderReadingList();
+      if (state.readings.length === 3) {
+        var average = { M: 0, J0: 0, J45: 0 };
+        state.readings.forEach(function (item) {
+          average.M += item.vector.M / 3;
+          average.J0 += item.vector.J0 / 3;
+          average.J45 += item.vector.J45 / 3;
+        });
+        var avgRx = vectorToRx(average);
+        var shownAverage = displayRx(avgRx);
+        $("resultAlert").textContent =
+          "3회 벡터 평균: SPH " + formatPower(roundQuarter(shownAverage.sph)) +
+          " / CYL " + formatPower(roundQuarter(shownAverage.cyl)) +
+          (Math.abs(shownAverage.cyl) >= .25 ? " × " + Math.round(shownAverage.axis) + "°" : "") +
+          ". 렌즈미터 값과 비교해 주세요.";
+      }
+      showToast("현재 측정값을 추가했습니다.");
+    }
+
+    function renderReadingList() {
+      $("readingProgress").textContent = state.readings.length + " / 3";
+      if (!state.readings.length) {
+        $("readingList").innerHTML = '<span class="metric-chip">아직 저장된 측정 없음</span>';
+        return;
+      }
+      $("readingList").innerHTML = state.readings.map(function (item, index) {
+        var shown = displayRx(item.rx);
+        return '<span class="reading-item">' + (index + 1) + '차 ' +
+          formatPower(roundQuarter(shown.sph)) + ' / ' +
+          formatPower(roundQuarter(shown.cyl)) + ' × ' +
+          Math.round(shown.axis) + '°</span>';
+      }).join("");
+    }
+
+    function loadSamples() {
+      try {
+        var parsed = JSON.parse(localStorage.getItem("lensAxisCalibrationV2") || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function persistSamples() {
+      localStorage.setItem("lensAxisCalibrationV2", JSON.stringify(state.calibrationSamples));
+    }
+
+    function saveCalibration() {
+      if (!state.rawVector) {
+        showToast("먼저 렌즈를 촬영하고 분석해 주세요.");
+        return;
+      }
+      var sph = Number($("knownSph").value);
+      var cyl = Number($("knownCyl").value);
+      var axis = Number($("knownAxis").value);
+      if (![sph, cyl, axis].every(Number.isFinite)) {
+        showToast("SPH, CYL, AXIS 정답값을 모두 입력해 주세요.");
+        return;
+      }
+      if (cyl > 0 || axis < 0 || axis > 180) {
+        showToast("CYL은 마이너스 표기, AXIS는 0~180°로 입력해 주세요.");
+        return;
+      }
+      state.calibrationSamples.push({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        createdAt: new Date().toISOString(),
+        raw: state.rawVector,
+        known: rxToVector(sph, cyl, axis),
+        knownRx: { sph: sph, cyl: cyl, axis: axis },
+        geometry: state.currentReading ? state.currentReading.geometry : null
+      });
+      persistSamples();
+      $("knownSph").value = "";
+      $("knownCyl").value = "";
+      $("knownAxis").value = "";
+      updateCalibrationBadge();
+      renderCalibration();
+      analyzeCurrent();
+      showToast("보정 데이터를 저장했습니다.");
+    }
+
+    function deleteSample(id) {
+      state.calibrationSamples = state.calibrationSamples.filter(function (sample) { return sample.id !== id; });
+      persistSamples();
+      renderCalibration();
+      updateCalibrationBadge();
+      if (state.imageReady) analyzeCurrent();
+    }
+
+    function updateCalibrationBadge() {
+      var count = state.calibrationSamples.length;
+      $("calBadge").textContent = count ? count + "개 렌즈 보정" : "미보정";
+      $("calBadge").classList.toggle("ready", count >= 3);
+    }
+
+    function renderCalibration() {
+      var model = fitCalibration();
+      var count = state.calibrationSamples.length;
+      $("sampleCount").textContent = String(count);
+      $("meanGain").textContent = model.meanGain.toFixed(2) + "×";
+      $("cylGain").textContent = model.cylGain.toFixed(2) + "×";
+      $("modelStatus").textContent = count >= 6 ? "기본 보정 완료" : count ? "보정 중" : "데이터 없음";
+      $("modelStatus").classList.toggle("ready", count >= 6);
+      if (!count) {
+        $("sampleList").innerHTML = '<div class="empty-list">렌즈 측정 후 렌즈미터 정답값을 저장하면<br>여기에 보정 샘플이 쌓입니다.</div>';
+        return;
+      }
+      $("sampleList").innerHTML = state.calibrationSamples.slice().reverse().map(function (sample) {
+        var known = sample.knownRx || vectorToRx(sample.known);
+        var date = new Date(sample.createdAt);
+        return '<div class="sample"><div><strong>SPH ' + formatPower(known.sph) +
+          ' · CYL ' + formatPower(known.cyl) + ' × ' + Math.round(known.axis) +
+          '°</strong><span>' + date.toLocaleString("ko-KR") +
+          '</span></div><button class="icon-btn" type="button" data-delete-sample="' +
+          sample.id + '" aria-label="보정 샘플 삭제">×</button></div>';
+      }).join("");
+      document.querySelectorAll("[data-delete-sample]").forEach(function (button) {
+        button.addEventListener("click", function () { deleteSample(button.dataset.deleteSample); });
+      });
+    }
+
+    function exportSamples() {
+      if (!state.calibrationSamples.length) {
+        showToast("내보낼 보정 데이터가 없습니다.");
+        return;
+      }
+      var payload = {
+        type: "LensAxisLabCalibration",
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        samples: state.calibrationSamples
+      };
+      var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement("a");
+      link.href = url;
+      link.download = "lens-axis-calibration.json";
+      link.click();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+
+    function importSamples(file) {
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        try {
+          var payload = JSON.parse(reader.result);
+          if (!payload || payload.type !== "LensAxisLabCalibration" || payload.version !== 2 || !Array.isArray(payload.samples)) throw new Error();
+          state.calibrationSamples = payload.samples;
+          persistSamples();
+          renderCalibration();
+          updateCalibrationBadge();
+          showToast("보정 데이터를 불러왔습니다.");
+        } catch (error) {
+          showToast("Lens Axis Lab 보정 파일이 아닙니다.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function createDemo() {
+      var w = 1100;
+      var h = 820;
+      var ctx = els.source.getContext("2d");
+      els.source.width = w;
+      els.source.height = h;
+      ctx.fillStyle = "#f7fbff";
+      ctx.fillRect(0, 0, w, h);
+      var cx = w * .52;
+      var cy = h * .51;
+      var radius = 225;
+      var pitchX = 44;
+      var pitchY = 58;
+      var geometry = measurementGeometry(400, 50);
+      var distanceM = geometry.effectiveM;
+      var demoSph = -2.00;
+      var demoCyl = -1.25;
+      var demoAxis = 30 * Math.PI / 180;
+      var mAxis = 1 / (1 - distanceM * demoSph);
+      var mPerp = 1 / (1 - distanceM * (demoSph + demoCyl));
+      var cos = Math.cos(demoAxis);
+      var sin = Math.sin(demoAxis);
+      var a00 = cos * cos * mAxis + sin * sin * mPerp;
+      var a01 = cos * sin * (mAxis - mPerp);
+      var a10 = a01;
+      var a11 = sin * sin * mAxis + cos * cos * mPerp;
+      ctx.fillStyle = "#1677ff";
+      for (var y = 92; y < h - 70; y += pitchY) {
+        for (var x = 54; x < w - 45; x += pitchX) {
+          var dx = x - cx;
+          var dy = y - cy;
+          var d = Math.sqrt(dx * dx + dy * dy);
+          var px = x;
+          var py = y;
+          if (d < radius * .9) {
+            px = cx + a00 * dx + a01 * dy;
+            py = cy + a10 * dx + a11 * dy;
+          }
+          ctx.beginPath();
+          ctx.arc(px, py, 7, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.strokeStyle = "rgba(22,52,84,.45)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(72,86,104,.5)";
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(cx - radius * 1.75, cy - radius * .95);
+      ctx.lineTo(cx + radius * 1.75, cy - radius * .95);
+      ctx.stroke();
+      $("radiusSlider").value = String(Math.round(radius / Math.min(w, h) * 100));
+      $("radiusOutput").textContent = $("radiusSlider").value + "%";
+      $("cameraScreenSlider").value = "400";
+      $("lensPositionSlider").value = "50";
+      updateGeometryUI();
+      $("frameAngleSlider").value = "0";
+      $("frameAngleOutput").textContent = "0°";
+      prepareImage({ x: cx, y: cy }, radius);
+      setTimeout(analyzeCurrent, 50);
+      showToast("정답 -2.00 / -1.25 × 30° 데모입니다.");
+    }
+
+    function updateGeometryUI() {
+      var geometry = measurementGeometry(
+        Number($("cameraScreenSlider").value),
+        Number($("lensPositionSlider").value)
+      );
+      $("cameraScreenOutput").textContent = Math.round(geometry.totalMm) + "mm";
+      $("lensPositionOutput").textContent = Math.round(geometry.positionPercent) + "%";
+      $("cameraLensValue").textContent = Math.round(geometry.cameraLensMm) + "mm";
+      $("lensScreenValue").textContent = Math.round(geometry.lensScreenMm) + "mm";
+      $("effectiveDistanceValue").textContent = geometry.effectiveMm.toFixed(1) + "mm";
+      $("lensNode").style.left = geometry.positionPercent + "%";
+      $("lensLabel").style.left = geometry.positionPercent + "%";
+    }
+
+    function handleGeometryChange() {
+      updateGeometryUI();
+      if (state.imageReady && state.currentReading) analyzeCurrent();
+    }
+
+    function drawTarget() {
+      var canvas = $("targetCanvas");
+      var rect = canvas.getBoundingClientRect();
+      var ratio = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = Math.round(rect.width * ratio);
+      canvas.height = Math.round(rect.height * ratio);
+      var ctx = canvas.getContext("2d");
+      var spacingX = Number($("targetSpacing").value) * ratio;
+      var spacingY = spacingX * 1.32;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      var radius = clamp(spacingX * .105, 4 * ratio, 8 * ratio);
+      var offsetX = spacingX * .5;
+      var offsetY = spacingY * .45;
+      ctx.strokeStyle = "#e5f0fb";
+      ctx.lineWidth = Math.max(1, ratio);
+      for (var lineX = offsetX; lineX < canvas.width; lineX += spacingX) {
+        ctx.beginPath();
+        ctx.moveTo(lineX, 0);
+        ctx.lineTo(lineX, canvas.height);
+        ctx.stroke();
+      }
+      for (var lineY = offsetY; lineY < canvas.height; lineY += spacingY) {
+        ctx.beginPath();
+        ctx.moveTo(0, lineY);
+        ctx.lineTo(canvas.width, lineY);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#1677ff";
+      for (var y = offsetY; y < canvas.height; y += spacingY) {
+        for (var x = offsetX; x < canvas.width; x += spacingX) {
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.save();
+      ctx.strokeStyle = "rgba(5, 190, 204, .5)";
+      ctx.lineWidth = 2 * ratio;
+      ctx.setLineDash([13 * ratio, 11 * ratio]);
+      ctx.beginPath();
+      ctx.moveTo(0, canvas.height / 2);
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = "rgba(4, 58, 106, .72)";
+      ctx.font = "700 " + (15 * ratio) + "px -apple-system, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("HORIZONTAL 0°", 18 * ratio, canvas.height / 2 - 12 * ratio);
+    }
+
+    async function requestFullscreen() {
+      var target = document.querySelector(".target-wrap");
+      try {
+        if (!document.fullscreenElement) await target.requestFullscreen();
+        else await document.exitFullscreen();
+        setTimeout(drawTarget, 100);
+      } catch (error) {
+        showToast("이 브라우저에서는 전체 화면을 사용할 수 없습니다.");
+      }
+    }
+
+    async function toggleWakeLock() {
+      if (!("wakeLock" in navigator)) {
+        showToast("이 브라우저는 화면 켜짐 유지를 지원하지 않습니다.");
+        return;
+      }
+      try {
+        if (state.targetWakeLock) {
+          await state.targetWakeLock.release();
+          state.targetWakeLock = null;
+          $("wakeBtn").textContent = "화면 켜짐 유지";
+        } else {
+          state.targetWakeLock = await navigator.wakeLock.request("screen");
+          $("wakeBtn").textContent = "화면 켜짐 해제";
+          state.targetWakeLock.addEventListener("release", function () {
+            state.targetWakeLock = null;
+            $("wakeBtn").textContent = "화면 켜짐 유지";
+          });
+        }
+      } catch (error) {
+        showToast("화면 켜짐 유지 권한을 사용할 수 없습니다.");
+      }
+    }
+
+    els.canvas.addEventListener("pointerdown", function (event) {
+      if (!state.imageReady) return;
+      var rect = els.canvas.getBoundingClientRect();
+      state.center = {
+        x: (event.clientX - rect.left) * els.canvas.width / rect.width,
+        y: (event.clientY - rect.top) * els.canvas.height / rect.height
+      };
+      updateAnalysisChips();
+      drawOverlay();
+    });
+
+    $("radiusSlider").addEventListener("input", function () {
+      $("radiusOutput").textContent = this.value + "%";
+      if (state.imageReady) {
+        state.radius = Math.min(els.canvas.width, els.canvas.height) * Number(this.value) / 100;
+        updateAnalysisChips();
+        drawOverlay();
+      }
+    });
+
+    $("frameAngleSlider").addEventListener("input", function () {
+      $("frameAngleOutput").textContent = (Number(this.value) > 0 ? "+" : "") + this.value + "°";
+      if (state.imageReady) drawOverlay();
+    });
+
+    $("cameraScreenSlider").addEventListener("input", handleGeometryChange);
+    $("lensPositionSlider").addEventListener("input", handleGeometryChange);
+
+    document.querySelectorAll("[data-cyl-format]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        state.cylFormat = button.dataset.cylFormat;
+        document.querySelectorAll("[data-cyl-format]").forEach(function (item) {
+          item.classList.toggle("active", item === button);
+        });
+        if (state.currentReading) renderResult(state.currentReading);
+        renderReadingList();
+      });
+    });
+
+    $("targetSpacing").addEventListener("input", function () {
+      $("targetSpacingOutput").textContent = this.value;
+      drawTarget();
+    });
+
+    $("startCameraBtn").addEventListener("click", startCamera);
+    $("captureBtn").addEventListener("click", drawVideoFrame);
+    $("photoInput").addEventListener("change", function () { loadPhoto(this.files[0]); this.value = ""; });
+    $("demoBtn").addEventListener("click", createDemo);
+    $("analyzeBtn").addEventListener("click", analyzeCurrent);
+    $("retakeTopBtn").addEventListener("click", resetCapture);
+    $("retakeBtn").addEventListener("click", resetCapture);
+    $("addReadingBtn").addEventListener("click", addReading);
+    $("saveCalibrationBtn").addEventListener("click", saveCalibration);
+    $("fullscreenBtn").addEventListener("click", requestFullscreen);
+    $("wakeBtn").addEventListener("click", toggleWakeLock);
+    $("exportBtn").addEventListener("click", exportSamples);
+    $("importInput").addEventListener("change", function () { importSamples(this.files[0]); this.value = ""; });
+    $("clearSamplesBtn").addEventListener("click", function () {
+      if (!state.calibrationSamples.length) return;
+      if (confirm("저장된 보정 데이터를 모두 삭제할까요?")) {
+        state.calibrationSamples = [];
+        persistSamples();
+        renderCalibration();
+        updateCalibrationBadge();
+        if (state.imageReady) analyzeCurrent();
+      }
+    });
+
+    $("guideBtn").addEventListener("click", openGuideModal);
+    $("closeGuideBtn").addEventListener("click", closeGuideModal);
+    $("guideModal").addEventListener("click", function (event) {
+      if (event.target === $("guideModal")) closeGuideModal();
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !$("guideModal").classList.contains("hidden")) closeGuideModal();
+    });
+
+    $("gridGuideToggle").addEventListener("click", toggleGridGuide);
+    $("glassesGuideToggle").addEventListener("click", toggleGlassesGuide);
+    $("flashToggle").addEventListener("click", toggleFlash);
+    $("liveScanToggle").addEventListener("click", toggleLiveScan);
+    $("liveSaveBtn").addEventListener("click", saveLiveReading);
+    $("liveResetBtn").addEventListener("click", resetLiveScan);
+
+    $("clearHistoryBtn").addEventListener("click", function () {
+      if (!state.history.length) return;
+      if (confirm("저장된 측정 이력을 모두 삭제할까요?")) {
+        state.history = [];
+        persistHistory();
+        renderHistory();
+      }
+    });
+
+    window.addEventListener("resize", function () {
+      if ($("targetView").classList.contains("active")) drawTarget();
+    });
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible" && state.targetWakeLock) toggleWakeLock();
+    });
+
+    if (new URLSearchParams(location.search).get("target") === "1") setView("targetView");
+    renderCalibration();
+    renderReadingList();
+    renderHistory();
+    updateCalibrationBadge();
+    updateGeometryUI();
+    drawAxisDial(null);
+  })();
+  </script>
+</body>
+</html>
