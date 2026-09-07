@@ -266,7 +266,7 @@
       <button id="camBtn" class="btn pri" type="button">카메라 켜기</button>
       <button id="saveBtn" class="btn go" type="button" disabled>이 눈 저장 (수동)</button>
     </div>
-    <p class="hint" id="autoSaveHint">기울기와 측정값이 5회 연속 안정되면 자동 저장됩니다.</p>
+    <p class="hint" id="autoSaveHint">짐벌 보정으로 화면 이동·회전·작은 크기 변화를 제거한 뒤, 5회 연속 안정되면 자동 저장됩니다.</p>
     <div class="row">
       <button id="resetBtn" class="btn" type="button">스캔 초기화</button>
       <button id="demoBtn" class="btn" type="button">데모</button>
@@ -358,6 +358,7 @@ var S={
   samples:[],            // {M,J0,J45,score}
   results:{R:null,L:null},
   reference:null,        // 무안경 랜덤 점 기준 영상과 추적점
+  motion:null,           // 직전 프레임의 짐벌 보정 affine
   refSamples:[],
   refMode:false,
   autoSamples:[],
@@ -785,7 +786,7 @@ function selectDotFeatures(g,W,H,inside){
     if(sc>420) list.push({x:x,y:y,score:sc});
   }
   list.sort(function(a,b){return b.score-a.score;});
-  var out=[],limit=inside?58:110,buckets={};
+  var out=[],limit=inside?52:84,buckets={};
   for(var k=0;k<list.length&&out.length<limit;k++){
     var p=list[k],bx=Math.min(4,Math.floor(p.x/W*5)),by=Math.min(5,Math.floor(p.y/H*6));
     var key=bx+":"+by,cap=inside?8:6;
@@ -807,25 +808,41 @@ function zncc(a,b,W,H,ax,ay,bx,by,rad){
   if(vaa<80||vbb<80) return -2;
   return (sab-sa*sb/n)/Math.sqrt(vaa*vbb);
 }
-function matchDot(ref,cur,W,H,p,refHalf,curHalf,inside){
-  var ax=Math.round(p.x/2),ay=Math.round(p.y/2),best=-2,bx=0,by=0;
-  var range=inside?23:12;
+function predictPoint(p,f){
+  return f?{x:f.A[0]*p.x+f.A[1]*p.y+f.t[0],
+            y:f.A[2]*p.x+f.A[3]*p.y+f.t[1]}:{x:p.x,y:p.y};
+}
+function matchDot(ref,cur,W,H,p,rh,ch,rq,cq,inside,pred){
+  /* 1/4 영상에서 최대 약 100px의 큰 흔들림을 먼저 찾고,
+     1/2 → 원본 순서로 정밀화한다. */
+  var pp=predictPoint(p,pred);
+  var ax=Math.round(p.x/4),ay=Math.round(p.y/4);
+  var px=Math.round(pp.x/4),py=Math.round(pp.y/4);
+  var range=pred?(inside?14:9):26,best=-2,bx=0,by=0;
   for(var dy=-range;dy<=range;dy++)for(var dx=-range;dx<=range;dx++){
-    var s=zncc(refHalf.g,curHalf.g,refHalf.w,refHalf.h,ax,ay,ax+dx,ay+dy,3);
-    if(s>best){best=s;bx=ax+dx;by=ay+dy;}
+    var s=zncc(rq.g,cq.g,rq.w,rq.h,ax,ay,px+dx,py+dy,3);
+    if(s>best){best=s;bx=px+dx;by=py+dy;}
   }
-  if(best<.35) return null;
-  var fx=bx*2,fy=by*2,fullBest=-2,rx=fx,ry=fy;
+  if(best<.22)return null;
+  var ahx=Math.round(p.x/2),ahy=Math.round(p.y/2),hx=bx*2,hy=by*2;
+  var halfBest=-2,hbx=hx,hby=hy;
+  for(dy=-4;dy<=4;dy++)for(dx=-4;dx<=4;dx++){
+    var hs=zncc(rh.g,ch.g,rh.w,rh.h,ahx,ahy,hx+dx,hy+dy,4);
+    if(hs>halfBest){halfBest=hs;hbx=hx+dx;hby=hy+dy;}
+  }
+  if(halfBest<.30)return null;
+  var fx=hbx*2,fy=hby*2,fullBest=-2,rx=fx,ry=fy;
   for(dy=-3;dy<=3;dy++)for(dx=-3;dx<=3;dx++){
     var ss=zncc(ref,cur,W,H,p.x,p.y,fx+dx,fy+dy,6);
     if(ss>fullBest){fullBest=ss;rx=fx+dx;ry=fy+dy;}
   }
-  return fullBest>.42?{x:p.x,y:p.y,u:rx,v:ry,corr:fullBest}:null;
+  return fullBest>.40?{x:p.x,y:p.y,u:rx,v:ry,corr:fullBest}:null;
 }
-function trackDots(ref,cur,W,H,pts,inside){
-  var rh=halfGray(ref,W,H),ch=halfGray(cur,W,H),out=[];
+function trackDots(ref,cur,W,H,pts,inside,pred){
+  var rh=halfGray(ref,W,H),ch=halfGray(cur,W,H);
+  var rq=halfGray(rh.g,rh.w,rh.h),cq=halfGray(ch.g,ch.w,ch.h),out=[];
   for(var i=0;i<pts.length;i++){
-    var m=matchDot(ref,cur,W,H,pts[i],rh,ch,inside); if(m) out.push(m);
+    var m=matchDot(ref,cur,W,H,pts[i],rh,ch,rq,cq,inside,pred);if(m)out.push(m);
   }
   return out;
 }
@@ -858,11 +875,16 @@ function affineErr(f,p){
 function fitAffineRobust(ps){
   if(ps.length<7)return null;
   var best=[];
-  for(var it=0;it<48;it++){
+  /* 반복 글자에서 생기는 잘못된 짝을 제거한다. 큰 흔들림 모드는 오매칭이
+     늘 수 있으므로 충분한 RANSAC 반복과 비공선 삼각형을 사용한다. */
+  for(var it=0;it<140;it++){
     var tri=[],used={};
     while(tri.length<3){var k=Math.floor(Math.random()*ps.length);if(!used[k]){used[k]=1;tri.push(ps[k]);}}
+    var area=Math.abs((tri[1].x-tri[0].x)*(tri[2].y-tri[0].y)-
+                      (tri[1].y-tri[0].y)*(tri[2].x-tri[0].x));
+    if(area<90)continue;
     var f=fitAffineRaw(tri);if(!f)continue;
-    var ins=ps.filter(function(p){return affineErr(f,p)<2.8;});
+    var ins=ps.filter(function(p){return affineErr(f,p)<3.2;});
     if(ins.length>best.length)best=ins;
   }
   if(best.length<7)return null;
@@ -881,22 +903,35 @@ analyzeFrame=function(imgData,W,H){
   if(!S.reference||S.reference.W!==W||S.reference.H!==H)
     return {ok:false,why:"needReference"};
   var cur=rgbaToGray(imgData,W,H),ref=S.reference.gray;
-  var outPairs=trackDots(ref,cur,W,H,S.reference.outPts,false);
-  var inPairs=trackDots(ref,cur,W,H,S.reference.inPts,true);
-  var C=fitAffineRobust(outPairs),inside=fitAffineRobust(inPairs);
-  if(!C||C.n<10)return {ok:false,why:"noDotsOut"};
-  if(!inside||inside.n<9)return {ok:false,why:"noDotsIn"};
+  /* 직전 움직임으로 먼저 예측하고 실패하면 ±100px 광역 탐색으로 자동 복구한다. */
+  var outPairs=trackDots(ref,cur,W,H,S.reference.outPts,false,S.motion);
+  var C=fitAffineRobust(outPairs);
+  if(!C&&S.motion){outPairs=trackDots(ref,cur,W,H,S.reference.outPts,false,null);C=fitAffineRobust(outPairs);}
+  if(!C||C.n<9){
+    S.motion=null;
+    return {ok:false,why:"noDotsOut",message:"기준 바깥 특징 "+S.reference.outPts.length+
+      "개 중 "+outPairs.length+"개 재인식 — 카메라를 잠시 멈춰 주세요"};
+  }
+  S.motion=C;
+  var inPairs=trackDots(ref,cur,W,H,S.reference.inPts,true,C);
+  var inside=fitAffineRobust(inPairs);
+  if(!inside||inside.n<8)return {ok:false,why:"noDotsIn",message:"렌즈 안 특징 "+
+    S.reference.inPts.length+"개 중 "+inPairs.length+"개 재인식 — 렌즈 중앙을 맞춰 주세요"};
   var invC=inv2(C.A);if(!invC)return {ok:false,why:"illCond"};
   var L=mul2(invC,inside.A);
   var c1=Math.hypot(C.A[0],C.A[2]),c2=Math.hypot(C.A[1],C.A[3]);
   var dot=Math.abs((C.A[0]*C.A[1]+C.A[2]*C.A[3])/(c1*c2));
   var scale=Math.sqrt(Math.abs(C.A[0]*C.A[3]-C.A[1]*C.A[2]));
   var skew=Math.max(dot,Math.min(1,C.rms/7));
-  if(dot>.42)return {ok:false,why:"tilt"};
+  if(dot>.55)return {ok:false,why:"tilt",message:"기울기 "+Math.round(dot*100)+
+    "% — 작은 흔들림은 보정했지만 휴대폰을 조금 더 수평으로 해주세요"};
   if(scale<.78||scale>1.28)return {ok:false,why:"moved"};
   if(AUTO&&CAL.D){lastD=CAL.D/scale;if(lastD<120||lastD>2000)return {ok:false,why:"badDist"};}
+  var ccx=W*.5,ccy=H*.5,mx=C.A[0]*ccx+C.A[1]*ccy+C.t[0]-ccx,
+      my=C.A[2]*ccx+C.A[3]*ccy+C.t[1]-ccy;
   return {ok:true,A:L,score:Math.min(C.n,inside.n),skew:skew,
-          outPitchPx:scale,outScale:scale,outCount:C.n,inCount:inside.n};
+          outPitchPx:scale,outScale:scale,outCount:C.n,inCount:inside.n,
+          motionPx:Math.hypot(mx,my)};
 };
 
 /* ---------- 강건 집계 (중앙값 + MAD) ---------- */
@@ -944,7 +979,7 @@ function setReferenceUI(){
 function startReference(){
   if(!S.stream){toast("먼저 카메라를 켜 주세요.");return;}
   resetAutoSequence();
-  S.reference=null; S.refSamples=[]; S.refMode=true; S.samples=[]; S.bad=0;
+  S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=true; S.samples=[]; S.bad=0;
   renderLive(false); setReferenceUI();
   setBanner("안경을 치우고 그대로 유지해 주세요","warn");
 }
@@ -967,6 +1002,7 @@ function finishReference(){
   }
   S.reference={gray:avg,W:W,H:H,inPts:inPts,outPts:outPts,
                invA:[1,0,0,1],outPitchPx:1};
+  S.motion=null;
   lastD=CAL.D||Number($("distIn").value)||400;
   S.samples=[]; S.noLens=0; setReferenceUI(); renderLive(false);
   setBanner("기준 완료 — 안경렌즈를 원 안에 넣으세요","ok");
@@ -987,7 +1023,7 @@ async function startCam(){
     $("empty").classList.add("hidden");
     $("camBtn").textContent="카메라 끄기";
     resetAutoSequence();
-    S.samples=[]; S.reference=null; S.refSamples=[]; S.refMode=false;
+    S.samples=[]; S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false;
     S.last=null; S.bad=0; setReferenceUI(); renderLive();
     setBanner("먼저 안경 없이 ‘기준 잡기’를 눌러 주세요","warn");
     clearInterval(S.timer);
@@ -1001,7 +1037,7 @@ function stopCam(){
   $("vid").srcObject=null; $("vid").classList.add("hidden");
   $("empty").classList.remove("hidden");
   $("camBtn").textContent="카메라 켜기";
-  S.reference=null; S.refSamples=[]; S.refMode=false; S.last=null;
+  S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false; S.last=null;
   setReferenceUI();
 }
 
@@ -1009,7 +1045,7 @@ var WHY={noGrid:"글자·무늬가 안 보입니다 — 조명을 밝게",
   noGridIn:"렌즈 안 무늬를 찾지 못했습니다",
   noGridOut:"렌즈 바깥 무늬가 필요합니다",
   noDotsIn:"렌즈 안쪽 글자를 찾지 못했습니다 — 초점을 확인하세요",
-  noDotsOut:"렌즈 밖의 글자·무늬가 부족합니다 — 책을 화면 가득 비추세요",
+  noDotsOut:"기준 촬영 이후 화면이 크게 움직였습니다 — 잠시 멈춰 주세요",
   needReference:"무안경 기준을 먼저 잡아 주세요",
   moved:"촬영 위치가 크게 바뀌었습니다 — 기준을 다시 잡으세요",
   tilt:"기울었습니다 — 화면과 평행하게",
@@ -1093,7 +1129,7 @@ function tick(){
     /* 랜덤 점을 계속 못 잡으면 예전 표본이 남지 않도록 비운다. */
     S.bad=(S.bad||0)+1;
     if(S.bad>30 && S.samples.length){ S.samples=[]; }
-    setBanner(WHY[r.why]||"정렬 중…", "bad");
+    setBanner(r.message||WHY[r.why]||"정렬 중…", "bad");
   }
   renderLive(r.ok);
 }
@@ -1148,6 +1184,7 @@ function renderLive(gotOne){
   var auto=autoSaveState();
   var tiltMsg="";
   if(S.last&&S.last.skew>.35) tiltMsg=" · 기울어짐(보정됨)";
+  if(S.last&&S.last.motionPx>3) tiltMsg+=" · 흔들림 "+Math.round(S.last.motionPx)+"px 보정";
   var canAuto=gotOne===true&&S.stream&&S.reference&&!S.refMode&&
     Date.now()>=S.autoSaveCooldownUntil;
   if(auto.ready&&canAuto){
