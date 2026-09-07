@@ -266,6 +266,9 @@
       <button id="camBtn" class="btn pri" type="button">카메라 켜기</button>
       <button id="saveBtn" class="btn go" type="button" disabled>이 눈 저장 (수동)</button>
     </div>
+    <div class="row one">
+      <button id="focusBtn" class="btn" type="button" disabled>◎ 초점 다시 잡기</button>
+    </div>
     <p class="hint" id="autoSaveHint">짐벌 보정으로 화면 이동·회전·작은 크기 변화를 제거한 뒤, 5회 연속 안정되면 자동 저장됩니다.</p>
     <div class="row">
       <button id="resetBtn" class="btn" type="button">스캔 초기화</button>
@@ -359,6 +362,10 @@ var S={
   results:{R:null,L:null},
   reference:null,        // 무안경 랜덤 점 기준 영상과 추적점
   motion:null,           // 직전 프레임의 짐벌 보정 affine
+  focusTrack:null,
+  focusModes:[],
+  focusBusy:false,
+  lastFocusRetry:0,
   refSamples:[],
   refMode:false,
   autoSamples:[],
@@ -773,6 +780,16 @@ function cornerScore(g,W,H,x,y){
   var tr=xx+yy,disc=Math.sqrt(Math.max(0,(xx-yy)*(xx-yy)+4*xy*xy));
   return (tr-disc)/2;
 }
+function edgeSharpness(g,W,H,inside){
+  var cx=W*.5,cy=H*.5*(370/400),R=Math.min(W,H)*.24,sum=0,n=0;
+  for(var y=3;y<H-3;y+=3)for(var x=3;x<W-3;x+=3){
+    var rr=Math.hypot(x-cx,y-cy)/R;
+    if(inside?rr>.82:rr<1.05)continue;
+    var p=y*W+x;
+    sum+=Math.abs(g[p+1]-g[p-1])+Math.abs(g[p+W]-g[p-W]);n++;
+  }
+  return n?sum/n:0;
+}
 function selectDotFeatures(g,W,H,inside){
   var cx=W*.5,cy=H*.5*(370/400),R=Math.min(W,H)*.24;
   var list=[],step=8,margin=18;
@@ -836,7 +853,11 @@ function matchDot(ref,cur,W,H,p,rh,ch,rq,cq,inside,pred){
     var ss=zncc(ref,cur,W,H,p.x,p.y,fx+dx,fy+dy,6);
     if(ss>fullBest){fullBest=ss;rx=fx+dx;ry=fy+dy;}
   }
-  return fullBest>.40?{x:p.x,y:p.y,u:rx,v:ry,corr:fullBest}:null;
+  if(fullBest>.40)return {x:p.x,y:p.y,u:rx,v:ry,corr:fullBest};
+  /* 렌즈를 넣은 뒤 내부 글자만 흐려져도 1/2 영상의 큰 글자 윤곽으로 계속 추적한다. */
+  if(inside&&halfBest>.47)return {x:p.x,y:p.y,u:hbx*2,v:hby*2,
+    corr:halfBest*.86,coarse:true};
+  return null;
 }
 function trackDots(ref,cur,W,H,pts,inside,pred){
   var rh=halfGray(ref,W,H),ch=halfGray(cur,W,H);
@@ -909,14 +930,22 @@ analyzeFrame=function(imgData,W,H){
   if(!C&&S.motion){outPairs=trackDots(ref,cur,W,H,S.reference.outPts,false,null);C=fitAffineRobust(outPairs);}
   if(!C||C.n<9){
     S.motion=null;
-    return {ok:false,why:"noDotsOut",message:"기준 바깥 특징 "+S.reference.outPts.length+
-      "개 중 "+outPairs.length+"개 재인식 — 카메라를 잠시 멈춰 주세요"};
+    var outSharp=edgeSharpness(cur,W,H,false)/(S.reference.sharpOut||1);
+    return {ok:false,why:"noDotsOut",message:outSharp<.42?
+      "렌즈 밖 선명도 "+Math.round(outSharp*100)+"% — 자동초점 재요청 중":
+      "기준 바깥 특징 "+S.reference.outPts.length+"개 중 "+outPairs.length+
+      "개 재인식 — 카메라를 잠시 멈춰 주세요"};
   }
   S.motion=C;
   var inPairs=trackDots(ref,cur,W,H,S.reference.inPts,true,C);
   var inside=fitAffineRobust(inPairs);
-  if(!inside||inside.n<8)return {ok:false,why:"noDotsIn",message:"렌즈 안 특징 "+
-    S.reference.inPts.length+"개 중 "+inPairs.length+"개 재인식 — 렌즈 중앙을 맞춰 주세요"};
+  if(!inside||inside.n<8){
+    var inSharp=edgeSharpness(cur,W,H,true)/(S.reference.sharpIn||1);
+    return {ok:false,why:"noDotsIn",message:inSharp<.42?
+      "렌즈 안 선명도 "+Math.round(inSharp*100)+"% — 자동초점 재요청 중":
+      "렌즈 안 특징 "+S.reference.inPts.length+"개 중 "+inPairs.length+
+      "개 재인식 — 렌즈 중앙을 맞춰 주세요"};
+  }
   var invC=inv2(C.A);if(!invC)return {ok:false,why:"illCond"};
   var L=mul2(invC,inside.A);
   var c1=Math.hypot(C.A[0],C.A[2]),c2=Math.hypot(C.A[1],C.A[3]);
@@ -1001,12 +1030,52 @@ function finishReference(){
     return;
   }
   S.reference={gray:avg,W:W,H:H,inPts:inPts,outPts:outPts,
+               sharpIn:edgeSharpness(avg,W,H,true),
+               sharpOut:edgeSharpness(avg,W,H,false),
                invA:[1,0,0,1],outPitchPx:1};
   S.motion=null;
   lastD=CAL.D||Number($("distIn").value)||400;
   S.samples=[]; S.noLens=0; setReferenceUI(); renderLive(false);
   setBanner("기준 완료 — 안경렌즈를 원 안에 넣으세요","ok");
   toast("무안경 책 배경 기준이 저장되었습니다.");
+}
+
+/* ---------- 카메라 자동초점 ---------- */
+async function setupAutoFocus(){
+  var track=S.stream&&S.stream.getVideoTracks()[0];
+  S.focusTrack=track||null;S.focusModes=[];S.focusBusy=false;S.lastFocusRetry=0;
+  if(!track)return false;
+  try{
+    var caps=track.getCapabilities?track.getCapabilities():{};
+    S.focusModes=Array.isArray(caps.focusMode)?caps.focusMode:[];
+    if(S.focusModes.indexOf("continuous")>=0){
+      await track.applyConstraints({advanced:[{focusMode:"continuous"}]});
+      return true;
+    }
+  }catch(e){}
+  /* 초점 제어 API가 없는 iPhone Safari도 카메라 자체의 연속 AF는 계속 동작한다. */
+  return false;
+}
+async function requestAutoFocus(silent){
+  if(!S.focusTrack||S.focusTrack.readyState==="ended")return false;
+  var now=Date.now();if(S.focusBusy||now-S.lastFocusRetry<1600)return false;
+  S.focusBusy=true;S.lastFocusRetry=now;
+  var ok=false;
+  try{
+    if(S.focusModes.indexOf("single-shot")>=0){
+      await S.focusTrack.applyConstraints({advanced:[{focusMode:"single-shot"}]});
+      ok=true;
+      await new Promise(function(resolve){setTimeout(resolve,450);});
+    }
+    if(S.focusModes.indexOf("continuous")>=0){
+      await S.focusTrack.applyConstraints({advanced:[{focusMode:"continuous"}]});
+      ok=true;
+    }
+  }catch(e){}
+  S.focusBusy=false;
+  if(!silent)toast(ok?"카메라 중앙에 자동초점을 다시 요청했습니다.":
+    "이 기기는 웹 초점 제어를 지원하지 않아 기본 자동초점을 사용합니다.");
+  return ok;
 }
 
 /* ---------- 카메라 ---------- */
@@ -1016,12 +1085,16 @@ async function startCam(){
   stopCam();
   try{
     S.stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:960}},audio:false});
+      video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1440},
+             frameRate:{ideal:30}},audio:false});
     $("vid").srcObject=S.stream;
     await $("vid").play();
+    var afOn=await setupAutoFocus();
     $("vid").classList.remove("hidden");
     $("empty").classList.add("hidden");
     $("camBtn").textContent="카메라 끄기";
+    $("focusBtn").textContent=afOn?"◎ 연속 자동초점 켜짐":"◎ 초점 다시 잡기";
+    $("focusBtn").disabled=false;
     resetAutoSequence();
     S.samples=[]; S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false;
     S.last=null; S.bad=0; setReferenceUI(); renderLive();
@@ -1037,6 +1110,8 @@ function stopCam(){
   $("vid").srcObject=null; $("vid").classList.add("hidden");
   $("empty").classList.remove("hidden");
   $("camBtn").textContent="카메라 켜기";
+  $("focusBtn").disabled=true;
+  S.focusTrack=null;S.focusModes=[];S.focusBusy=false;
   S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false; S.last=null;
   setReferenceUI();
 }
@@ -1044,7 +1119,7 @@ function stopCam(){
 var WHY={noGrid:"글자·무늬가 안 보입니다 — 조명을 밝게",
   noGridIn:"렌즈 안 무늬를 찾지 못했습니다",
   noGridOut:"렌즈 바깥 무늬가 필요합니다",
-  noDotsIn:"렌즈 안쪽 글자를 찾지 못했습니다 — 초점을 확인하세요",
+  noDotsIn:"렌즈 안쪽 글자를 기준 사진과 연결하지 못했습니다",
   noDotsOut:"기준 촬영 이후 화면이 크게 움직였습니다 — 잠시 멈춰 주세요",
   needReference:"무안경 기준을 먼저 잡아 주세요",
   moved:"촬영 위치가 크게 바뀌었습니다 — 기준을 다시 잡으세요",
@@ -1128,6 +1203,7 @@ function tick(){
     resetAutoSequence();
     /* 랜덤 점을 계속 못 잡으면 예전 표본이 남지 않도록 비운다. */
     S.bad=(S.bad||0)+1;
+    if((r.why==="noDotsIn"||r.why==="noDotsOut")&&S.bad>=2)requestAutoFocus(true);
     if(S.bad>30 && S.samples.length){ S.samples=[]; }
     setBanner(r.message||WHY[r.why]||"정렬 중…", "bad");
   }
@@ -1313,6 +1389,7 @@ function demo(){
 $("eyeR").addEventListener("click",function(){setEye("R");});
 $("eyeL").addEventListener("click",function(){setEye("L");});
 $("camBtn").addEventListener("click",function(){S.stream?stopCam():startCam();});
+$("focusBtn").addEventListener("click",function(){requestAutoFocus(false);});
 $("refBtn").addEventListener("click",startReference);
 $("saveBtn").addEventListener("click",function(){saveEye(false);});
 $("resetBtn").addEventListener("click",function(){resetAutoSequence();S.samples=[];renderLive();toast("초기화했습니다");});
