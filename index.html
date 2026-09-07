@@ -160,50 +160,10 @@
     <button id="helpBtn" class="ibtn" type="button" aria-label="사용법">?</button>
   </header>
 
-  <!-- 1. 거리 -->
+  <!-- 측정 조건은 카메라↔책 200mm, 렌즈 위치 50%(각 100mm)로 고정 -->
   <div class="card">
-    <div class="eye-sel" style="margin-bottom:10px">
-      <button id="modeAuto" class="eye-btn" type="button">자동 거리<small>보정 필요</small></button>
-      <button id="modeMan" class="eye-btn on" type="button">수동 입력<small>줄자로 측정</small></button>
-    </div>
-
-    <div id="manBox">
-      <div class="fieldrow">
-        <label for="distIn">카메라 ↔ 책 표면 거리</label>
-        <input id="distIn" type="number" min="150" max="1200" step="10" value="400">
-      </div>
-    </div>
-
-    <div id="autoBox" class="hidden">
-      <div class="fieldrow">
-        <label>측정된 거리</label>
-        <strong id="autoDist" style="font-variant-numeric:tabular-nums">—</strong>
-      </div>
-      <p class="hint">기준 촬영 때의 렌즈 바깥 글자 크기와 비교해 거리를 계산합니다.</p>
-    </div>
-
-    <div class="fieldrow">
-      <label for="posIn">안경 위치 (카메라 쪽부터 %)</label>
-      <input id="posIn" type="number" min="20" max="80" step="1" value="50">
-    </div>
-    <p class="eqn">a=<b id="aVal">200</b>mm · b=<b id="bVal">200</b>mm · e=<b id="eVal">100.0</b>mm</p>
-
-    <details style="margin-top:10px">
-      <summary style="color:var(--muted);font-size:.8rem;cursor:pointer">자동 거리 보정 (최초 1회)</summary>
-      <p class="hint" style="margin-top:8px">
-        배율만으로는 절대 거리를 알 수 없습니다(F와 e의 곱만 정해짐).
-        기준 촬영 거리만 한 번 입력하면 이후 렌즈 바깥 글자의 배율로 거리를 보정합니다.</p>
-      <div class="fieldrow">
-        <label for="calDist">지금 실제 거리 (줄자)</label>
-        <input id="calDist" type="number" min="150" max="1200" step="10" placeholder="mm">
-      </div>
-      <div class="row one"><button id="calBtn" class="btn" type="button">이 상태로 보정</button></div>
-      <p class="hint" id="calState">아직 보정되지 않았습니다.</p>
-    </details>
-
-    <p class="hint">e = ab/(a+b), F = (1 − 1/m)/e · 안경을 중간(50%)에 두면 위치 오차의 영향이 최소입니다.</p>
-    <div class="row one">
-      <button id="tgtBtn" class="btn" type="button">특징이 부족할 때 연습용 타깃 표시</button>
+    <div class="row one" style="margin-top:0">
+      <button id="tgtBtn" class="btn" type="button">타깃 전송</button>
     </div>
   </div>
 
@@ -263,16 +223,8 @@
     <div class="meterrow"><span id="mLeft">유효 스캔 0</span><span id="mRight">—</span></div>
 
     <div class="row">
-      <button id="camBtn" class="btn pri" type="button">카메라 켜기</button>
-      <button id="saveBtn" class="btn go" type="button" disabled>이 눈 저장 (수동)</button>
-    </div>
-    <div class="row one">
-      <button id="focusBtn" class="btn" type="button" disabled>◎ 초점 다시 잡기</button>
-    </div>
-    <p class="hint" id="autoSaveHint">짐벌 보정으로 화면 이동·회전·작은 크기 변화를 제거한 뒤, 5회 연속 안정되면 자동 저장됩니다.</p>
-    <div class="row">
       <button id="resetBtn" class="btn" type="button">스캔 초기화</button>
-      <button id="demoBtn" class="btn" type="button">데모</button>
+      <button id="saveBtn" class="btn go" type="button" disabled>이 눈 저장 (수동)</button>
     </div>
   </div>
 
@@ -310,9 +262,9 @@
       <h3>준비</h3>
       <ol>
         <li>작은 글자가 많은 책·신문·무광 인쇄물을 <b>평평하게</b> 놓고 화면 전체에 글자가 보이게 합니다.</li>
-        <li>휴대폰 카메라와 책 표면 사이 거리를 재서 위에 입력합니다.</li>
-        <li>카메라를 켠 뒤 <b>안경을 두지 않은 상태</b>로 ‘기준 잡기’를 누릅니다.</li>
-        <li>기준이 완료되면 휴대폰과 책을 움직이지 말고, 안경을 <b>정확히 중간</b>에 수평으로 둡니다.</li>
+        <li>휴대폰 카메라와 책 표면을 <b>200mm</b> 간격으로 고정합니다.</li>
+        <li>카메라가 자동으로 켜지면 <b>안경을 두지 않은 상태</b>로 ‘기준 잡기’를 누릅니다.</li>
+        <li>기준이 완료되면 휴대폰과 책을 움직이지 말고, 안경을 정확히 중간인 <b>카메라에서 100mm</b> 위치에 수평으로 둡니다.</li>
       </ol>
       <h3>측정</h3>
       <ol>
@@ -323,8 +275,8 @@
       </ol>
       <h3>정확도를 올리려면</h3>
       <ul>
-        <li><b>거리를 정확히</b> — 가장 큰 오차원입니다. 400mm에서 20mm 틀리면 −4.00D가 약 0.2D 흔들립니다.
-            줄자로 재고 ±1cm 안으로 맞추세요.</li>
+        <li><b>거리를 정확히</b> — 가장 큰 오차원입니다. 기본 측정 거리는 200mm이며
+            고정 높이 거치대로 ±5mm 안에 맞추는 것을 권장합니다.</li>
         <li><b>안경테를 초록 수평선에 맞추세요</b> — AXIS는 이 선을 0°로 잡습니다. 테가 기울면 그만큼 축이 틀립니다.</li>
         <li>휴대폰을 책 표면과 <b>평행</b>하게. 많이 기울면 프레임을 자동으로 버립니다.</li>
         <li>렌즈 반사광을 피하고, 파란 원의 안쪽과 바깥쪽 모두에 작은 글자가 보여야 합니다.</li>
@@ -424,30 +376,16 @@ var CAL=(function(){
        return (v&&v.D)?v:{D:null}; }catch(e){ return {D:null}; }
 })();
 var AUTO=false;
-var lastD=null;          /* 자동 모드에서 마지막으로 측정된 총거리(mm) */
+var lastD=200;
+var TARGET_ONLY=new URLSearchParams(location.search).get("target")==="1";
 
 function totalDistance(){
-  if(AUTO && CAL.D && lastD) return lastD;
-  var v=Number($("distIn").value);
-  return (isFinite(v)&&v>0)?v:400;
+  return 200;
 }
 function geom(){
-  var total=totalDistance(), p=Number($("posIn").value)/100;
-  if(!isFinite(p)||p<=.05||p>=.95) p=.5;
-  var a=total*p, b=total-a, e=a*b/total;
-  return {a:a,b:b,e:e,eM:e/1000};
+  return {a:100,b:100,e:50,eM:.05};
 }
-function syncGeom(){
-  var g=geom();
-  $("aVal").textContent=Math.round(g.a);
-  $("bVal").textContent=Math.round(g.b);
-  $("eVal").textContent=g.e.toFixed(1);
-  $("autoDist").textContent=lastD?Math.round(lastD)+"mm":"—";
-  $("calState").textContent = CAL.D
-    ? "보정됨 · 기준 거리 "+Math.round(CAL.D)+"mm"
-    : "아직 보정되지 않았습니다.";
-  $("modeAuto").querySelector("small").textContent=CAL.D?"사용 가능":"보정 필요";
-}
+function syncGeom(){}
 
 function normAxis(d){var v=d%180; if(v<0)v+=180; return v;}
 function rxToVec(s,c,ax){var a=ax*Math.PI/180;
@@ -1058,7 +996,7 @@ function finishReference(){
                sharpOut:edgeSharpness(avg,W,H,false),
                invA:[1,0,0,1],outPitchPx:1};
   S.motion=null;
-  lastD=CAL.D||Number($("distIn").value)||400;
+  lastD=200;
   S.samples=[]; S.noLens=0; setReferenceUI(); renderLive(false);
   setBanner("기준 완료 — 안경렌즈를 원 안에 넣으세요","ok");
   toast("무안경 책 배경 기준이 저장되었습니다.");
@@ -1116,16 +1054,16 @@ async function startCam(){
     var afOn=await setupAutoFocus();
     $("vid").classList.remove("hidden");
     $("empty").classList.add("hidden");
-    $("camBtn").textContent="카메라 끄기";
-    $("focusBtn").textContent=afOn?"◎ 연속 자동초점 켜짐":"◎ 초점 다시 잡기";
-    $("focusBtn").disabled=false;
     resetAutoSequence();
     S.samples=[]; S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false;
     S.last=null; S.bad=0; setReferenceUI(); renderLive();
     setBanner("먼저 안경 없이 ‘기준 잡기’를 눌러 주세요","warn");
     clearInterval(S.timer);
     S.timer=setInterval(tick,320);
-  }catch(e){ toast("카메라 권한을 허용해 주세요. (HTTPS 필요)"); }
+  }catch(e){
+    setBanner("화면을 눌러 카메라를 다시 켜 주세요","warn");
+    toast("카메라 권한을 허용한 뒤 촬영 화면을 눌러 주세요. (HTTPS 필요)");
+  }
 }
 function stopCam(){
   resetAutoSequence();
@@ -1133,8 +1071,6 @@ function stopCam(){
   if(S.stream){S.stream.getTracks().forEach(function(t){t.stop();}); S.stream=null;}
   $("vid").srcObject=null; $("vid").classList.add("hidden");
   $("empty").classList.remove("hidden");
-  $("camBtn").textContent="카메라 켜기";
-  $("focusBtn").disabled=true;
   S.focusTrack=null;S.focusModes=[];S.focusBusy=false;
   S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false; S.last=null;
   setReferenceUI();
@@ -1390,7 +1326,37 @@ function drawTarget(){
   c.beginPath();c.arc(cv.width-m*1.45,cv.height-m*1.45,m*.30,0,Math.PI*2);c.stroke();
 }
 function openTarget(){$("tgtView").classList.remove("hidden");requestAnimationFrame(drawTarget);}
-function closeTarget(){$("tgtView").classList.add("hidden");}
+function closeTarget(){
+  $("tgtView").classList.add("hidden");
+  if(TARGET_ONLY){
+    TARGET_ONLY=false;
+    try{history.replaceState(null,"",location.pathname);}catch(e){}
+    document.querySelector(".wrap").classList.remove("hidden");
+    startCam();
+  }
+}
+function targetURL(){
+  var u=new URL(location.href);
+  u.search="";u.hash="";u.searchParams.set("target","1");
+  return u.toString();
+}
+async function shareTarget(){
+  var url=targetURL();
+  if(navigator.share){
+    try{
+      await navigator.share({
+        title:"Lens Meter 측정 타깃",
+        text:"이 링크를 다른 기기에서 열어 Lens Meter 측정 타깃을 표시하세요.",
+        url:url
+      });
+      return;
+    }catch(e){if(e&&e.name==="AbortError")return;}
+  }
+  try{
+    await navigator.clipboard.writeText(url);
+    toast("타깃 링크를 복사했습니다. 원하는 앱에 붙여 넣으세요.");
+  }catch(e){window.prompt("아래 타깃 링크를 복사해 전송하세요.",url);}
+}
 
 /* ---------- 데모 ---------- */
 function demo(){
@@ -1412,37 +1378,17 @@ function demo(){
 /* ---------- 이벤트 ---------- */
 $("eyeR").addEventListener("click",function(){setEye("R");});
 $("eyeL").addEventListener("click",function(){setEye("L");});
-$("camBtn").addEventListener("click",function(){S.stream?stopCam():startCam();});
-$("focusBtn").addEventListener("click",function(){requestAutoFocus(false);});
 $("refBtn").addEventListener("click",startReference);
 $("saveBtn").addEventListener("click",function(){saveEye(false);});
-$("resetBtn").addEventListener("click",function(){resetAutoSequence();S.samples=[];renderLive();toast("초기화했습니다");});
-$("demoBtn").addEventListener("click",demo);
-$("distIn").addEventListener("input",syncGeom);
-$("posIn").addEventListener("input",syncGeom);
-
-function setMode(auto){
-  if(auto && !CAL.D){ toast("먼저 '자동 거리 보정'을 한 번 해주세요."); return; }
-  AUTO=auto;
-  $("modeAuto").classList.toggle("on",auto);
-  $("modeMan").classList.toggle("on",!auto);
-  $("autoBox").classList.toggle("hidden",!auto);
-  $("manBox").classList.toggle("hidden",auto);
-  resetAutoSequence(); S.samples=[]; syncGeom(); renderLive();
-}
-$("modeAuto").addEventListener("click",function(){setMode(true);});
-$("modeMan").addEventListener("click",function(){setMode(false);});
-
-$("calBtn").addEventListener("click",function(){
-  var D=Number($("calDist").value);
-  if(!(D>0)){ toast("현재 카메라와 타깃 사이 거리(mm)를 입력하세요."); return; }
-  if(!S.reference){ toast("먼저 무안경 기준을 잡아 주세요."); return; }
-  CAL={D:D};lastD=D;
-  try{ localStorage.setItem("lmDotCalV2",JSON.stringify(CAL)); }catch(e){}
-  syncGeom();
-  toast("보정 완료 — 이제 자동 거리를 쓸 수 있습니다.");
+$("resetBtn").addEventListener("click",function(){
+  resetAutoSequence();
+  S.samples=[];S.results={R:null,L:null};S.autoSaveCooldownUntil=0;
+  renderResults();renderEyeTabs();renderLive();
+  setBanner(S.reference?"저장 결과가 삭제되었습니다 — 다시 측정해 주세요":"초기화했습니다","warn");
+  toast("스캔과 우·좌안 저장 결과를 모두 삭제했습니다.");
 });
-$("tgtBtn").addEventListener("click",openTarget);
+$("stage").addEventListener("click",function(){if(!S.stream)startCam();});
+$("tgtBtn").addEventListener("click",shareTarget);
 $("tgtClose").addEventListener("click",closeTarget);
 $("tgtFs").addEventListener("click",async function(){
   try{ if(!document.fullscreenElement) await $("tgtView").requestFullscreen();
@@ -1457,6 +1403,12 @@ window.addEventListener("resize",function(){
   if(!$("tgtView").classList.contains("hidden")) drawTarget();});
 
 syncGeom(); renderResults(); renderEyeTabs(); setReferenceUI(); renderLive();
+if(TARGET_ONLY){
+  document.querySelector(".wrap").classList.add("hidden");
+  openTarget();
+}else{
+  setTimeout(startCam,250);
+}
 })();
 </script>
 </body>
