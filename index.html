@@ -155,7 +155,7 @@
   <header>
     <div>
       <h1>Lens Meter</h1>
-      <p>격자 배율로 안경 도수를 추정합니다</p>
+      <p>랜덤 점 변형으로 안경 도수를 추정합니다</p>
     </div>
     <button id="helpBtn" class="ibtn" type="button" aria-label="사용법">?</button>
   </header>
@@ -169,7 +169,7 @@
 
     <div id="manBox">
       <div class="fieldrow">
-        <label for="distIn">카메라 ↔ 격자 화면 거리</label>
+        <label for="distIn">카메라 ↔ 랜덤 점 타깃 거리</label>
         <input id="distIn" type="number" min="150" max="1200" step="10" value="400">
       </div>
     </div>
@@ -179,7 +179,7 @@
         <label>측정된 거리</label>
         <strong id="autoDist" style="font-variant-numeric:tabular-nums">—</strong>
       </div>
-      <p class="hint">격자의 겉보기 주기로 매 프레임 거리를 계산합니다.</p>
+      <p class="hint">기준 촬영 때의 바깥쪽 점 크기와 비교해 거리를 계산합니다.</p>
     </div>
 
     <div class="fieldrow">
@@ -192,11 +192,7 @@
       <summary style="color:var(--muted);font-size:.8rem;cursor:pointer">자동 거리 보정 (최초 1회)</summary>
       <p class="hint" style="margin-top:8px">
         배율만으로는 절대 거리를 알 수 없습니다(F와 e의 곱만 정해짐).
-        카메라 초점거리를 한 번 보정하면 그 뒤로는 자동입니다.</p>
-      <div class="fieldrow">
-        <label for="pitchMm">격자 한 칸 실제 크기</label>
-        <input id="pitchMm" type="number" min="1" max="60" step="0.5" placeholder="mm">
-      </div>
+        기준 촬영 거리만 한 번 입력하면 이후 바깥쪽 랜덤 점의 배율로 거리를 보정합니다.</p>
       <div class="fieldrow">
         <label for="calDist">지금 실제 거리 (줄자)</label>
         <input id="calDist" type="number" min="150" max="1200" step="10" placeholder="mm">
@@ -207,7 +203,7 @@
 
     <p class="hint">e = ab/(a+b), F = (1 − 1/m)/e · 안경을 중간(50%)에 두면 위치 오차의 영향이 최소입니다.</p>
     <div class="row one">
-      <button id="tgtBtn" class="btn" type="button">격자 타깃 표시 (다른 기기에서 열기)</button>
+      <button id="tgtBtn" class="btn" type="button">랜덤 점 타깃 표시 (다른 기기에서 열기)</button>
     </div>
   </div>
 
@@ -244,7 +240,7 @@
         </svg>
       </div>
       <div class="empty" id="empty">
-        <div><b>카메라를 켜고 격자를 비추세요</b>
+        <div><b>카메라를 켜고 랜덤 점 타깃을 비추세요</b>
         점선 원 안에 렌즈 중앙이 오도록 안경을 중간에 듭니다.</div>
       </div>
       <div class="banner" id="banner">대기 중</div>
@@ -310,10 +306,10 @@
     <div class="mb">
       <h3>준비</h3>
       <ol>
-        <li>다른 기기(PC·태블릿)에서 이 페이지를 열고 <b>격자 타깃</b>을 전체화면으로 띄웁니다. 화면 밝기는 최대로.</li>
-        <li>휴대폰 카메라와 격자 화면 사이 거리를 재서 위에 입력합니다.</li>
+        <li>다른 기기(PC·태블릿)에서 이 페이지를 열고 <b>랜덤 점 타깃</b>을 전체화면으로 띄웁니다. 화면 밝기는 최대로.</li>
+        <li>휴대폰 카메라와 랜덤 점 화면 사이 거리를 재서 위에 입력합니다.</li>
         <li>카메라를 켠 뒤 <b>안경을 두지 않은 상태</b>로 ‘기준 잡기’를 누릅니다.</li>
-        <li>기준이 완료되면 휴대폰과 격자 화면을 움직이지 말고, 안경을 <b>정확히 중간</b>에 수평으로 듭니다.</li>
+        <li>기준이 완료되면 휴대폰과 랜덤 점 화면을 움직이지 말고, 안경을 <b>정확히 중간</b>에 수평으로 둡니다.</li>
       </ol>
       <h3>측정</h3>
       <ol>
@@ -327,16 +323,16 @@
         <li><b>거리를 정확히</b> — 가장 큰 오차원입니다. 400mm에서 20mm 틀리면 −4.00D가 약 0.2D 흔들립니다.
             줄자로 재고 ±1cm 안으로 맞추세요.</li>
         <li><b>안경테를 초록 수평선에 맞추세요</b> — AXIS는 이 선을 0°로 잡습니다. 테가 기울면 그만큼 축이 틀립니다.</li>
-        <li>휴대폰을 격자 화면과 <b>평행</b>하게. 많이 기울면 프레임을 자동으로 버립니다.</li>
-        <li>렌즈 반사광이 비치지 않는 각도를 찾고, 격자 화면은 밝게.</li>
+        <li>휴대폰을 랜덤 점 화면과 <b>평행</b>하게. 많이 기울면 프레임을 자동으로 버립니다.</li>
+        <li>렌즈 반사광이 비치지 않는 각도를 찾고, 랜덤 점 화면은 밝게.</li>
         <li>안경을 <b>중간(50%)</b>에 두면 거리 오차의 영향이 최소가 됩니다.</li>
       </ul>
       <h3>원리</h3>
-      <p>렌즈 밖(직접 보이는 격자)과 렌즈 안(렌즈를 통과한 격자)의 <b>공간 주파수</b>를 각각 FFT로 구해
-      역격자 기저를 비교합니다. 같은 프레임 안에서 비율을 내므로 카메라 줌·화면 픽셀 크기·격자 회전은 모두 상쇄됩니다.
-      배율 행렬 A의 고유값에서 두 주경선 배율 m₁·m₂를 분리하고,
+      <p>무안경 기준 사진의 랜덤 점을 현재 영상에서 다시 찾아 <b>렌즈 밖의 카메라 움직임</b>과
+      <b>렌즈 안의 방향별 변형</b>을 각각 계산합니다. 바깥쪽 변형을 제거한 배율 행렬 A의
+      고유값에서 두 주경선 배율 m₁·m₂를 분리하고,
       <b>F = (1 − 1/m)/e</b>, <b>e = ab/(a+b)</b> 로 각 경선의 도수를 계산합니다.
-      점을 찾는 방식이 아니라 주기를 보는 방식이라 점 격자·선 격자 어느 쪽이든 동작합니다.</p>
+      비주기적인 점 배열을 사용하므로 규칙적인 격자의 주기 오인식이 없습니다.</p>
       <p>여러 프레임을 모아 <b>중앙값 + MAD 이상치 제거</b>로 합칩니다. 흔들린 프레임 몇 장은 결과를 오염시키지 않습니다.</p>
       <h3>한계</h3>
       <p>박막 렌즈 근사를 씁니다. 렌즈 두께·굴절률(1.50~1.74)·비구면 설계에 따라 계통 오차가 남고,
@@ -361,14 +357,13 @@ var S={
   stream:null, timer:null, eye:"R",
   samples:[],            // {M,J0,J45,score}
   results:{R:null,L:null},
-  reference:null,        // 안경이 없을 때의 중앙/바깥 격자 배율 행렬
+  reference:null,        // 무안경 랜덤 점 기준 영상과 추적점
   refSamples:[],
   refMode:false,
   autoSamples:[],
   autoSaveTimer:null,
   autoSavePending:false,
-  autoSaveCooldownUntil:0,
-  N:64                   // FFT 패치 크기
+  autoSaveCooldownUntil:0
 };
 var MIN_LENS_POWER=.30;  // 이보다 작은 변화는 무안경/촬영 잡음으로 취급
 var REF_SAMPLE_TARGET=5; // 빠른 기준 보정에 필요한 최소 표본
@@ -415,16 +410,16 @@ function addAutoSample(vec,skew){
 }
 
 /* ---------- 광학 ---------- */
-/* 자동 거리 보정값: f=초점거리(px), P=격자 한 칸 실제 크기(mm) */
+/* 자동 거리 보정값: 기준 촬영 당시의 실제 카메라↔타깃 거리(mm) */
 var CAL=(function(){
-  try{ var v=JSON.parse(localStorage.getItem("lmCalV1")||"null");
-       return (v&&v.f&&v.P)?v:{f:null,P:null}; }catch(e){ return {f:null,P:null}; }
+  try{ var v=JSON.parse(localStorage.getItem("lmDotCalV2")||"null");
+       return (v&&v.D)?v:{D:null}; }catch(e){ return {D:null}; }
 })();
 var AUTO=false;
 var lastD=null;          /* 자동 모드에서 마지막으로 측정된 총거리(mm) */
 
 function totalDistance(){
-  if(AUTO && CAL.f && CAL.P && lastD) return lastD;
+  if(AUTO && CAL.D && lastD) return lastD;
   var v=Number($("distIn").value);
   return (isFinite(v)&&v>0)?v:400;
 }
@@ -440,10 +435,10 @@ function syncGeom(){
   $("bVal").textContent=Math.round(g.b);
   $("eVal").textContent=g.e.toFixed(1);
   $("autoDist").textContent=lastD?Math.round(lastD)+"mm":"—";
-  $("calState").textContent = (CAL.f&&CAL.P)
-    ? "보정됨 · f="+Math.round(CAL.f)+"px, 격자 "+CAL.P+"mm"
+  $("calState").textContent = CAL.D
+    ? "보정됨 · 기준 거리 "+Math.round(CAL.D)+"mm"
     : "아직 보정되지 않았습니다.";
-  $("modeAuto").querySelector("small").textContent=(CAL.f&&CAL.P)?"사용 가능":"보정 필요";
+  $("modeAuto").querySelector("small").textContent=CAL.D?"사용 가능":"보정 필요";
 }
 
 function normAxis(d){var v=d%180; if(v<0)v+=180; return v;}
@@ -749,6 +744,155 @@ function analyzeFrame(imgData,W,H){
           outPitchPx:outPitchPx};
 }
 
+/* ---------- 랜덤 점 추적 ----------
+   무안경 기준의 비주기 점 무늬를 현재 프레임에서 다시 찾는다.
+   렌즈 밖 affine은 카메라 움직임 C, 렌즈 안 affine은 C×L 이므로
+   L = C^-1×(C×L) 로 렌즈만의 방향별 배율을 분리할 수 있다. */
+function rgbaToGray(src,W,H){
+  var g=new Uint8Array(W*H);
+  for(var i=0,j=0;i<g.length;i++,j+=4)
+    g[i]=(src[j]*77+src[j+1]*150+src[j+2]*29)>>8;
+  return g;
+}
+function halfGray(src,W,H){
+  var w=W>>1,h=H>>1,out=new Uint8Array(w*h);
+  for(var y=0;y<h;y++)for(var x=0;x<w;x++){
+    var i=(y*2)*W+x*2;
+    out[y*w+x]=(src[i]+src[i+1]+src[i+W]+src[i+W+1]+2)>>2;
+  }
+  return {g:out,w:w,h:h};
+}
+function cornerScore(g,W,H,x,y){
+  var xx=0,yy=0,xy=0;
+  for(var j=-4;j<=4;j+=2)for(var i=-4;i<=4;i+=2){
+    var p=(y+j)*W+x+i;
+    var gx=g[p+1]-g[p-1],gy=g[p+W]-g[p-W];
+    xx+=gx*gx; yy+=gy*gy; xy+=gx*gy;
+  }
+  var tr=xx+yy,disc=Math.sqrt(Math.max(0,(xx-yy)*(xx-yy)+4*xy*xy));
+  return (tr-disc)/2;
+}
+function selectDotFeatures(g,W,H,inside){
+  var cx=W*.5,cy=H*.5*(370/400),R=Math.min(W,H)*.24;
+  var list=[],step=10,margin=24;
+  for(var y=margin;y<H-margin;y+=step)for(var x=margin;x<W-margin;x+=step){
+    var rr=Math.hypot(x-cx,y-cy)/R;
+    var allowed=inside?(rr<.76):(rr>1.22&&rr<1.98);
+    if(!allowed) continue;
+    var sc=cornerScore(g,W,H,x,y);
+    if(sc>1800) list.push({x:x,y:y,score:sc});
+  }
+  list.sort(function(a,b){return b.score-a.score;});
+  var out=[],limit=inside?46:58;
+  for(var k=0;k<list.length&&out.length<limit;k++){
+    var p=list[k],near=out.some(function(q){return Math.hypot(p.x-q.x,p.y-q.y)<11;});
+    if(!near) out.push(p);
+  }
+  return out;
+}
+function zncc(a,b,W,H,ax,ay,bx,by,rad){
+  if(ax-rad<0||ay-rad<0||ax+rad>=W||ay+rad>=H||
+     bx-rad<0||by-rad<0||bx+rad>=W||by+rad>=H) return -2;
+  var sa=0,sb=0,saa=0,sbb=0,sab=0,n=0;
+  for(var j=-rad;j<=rad;j++)for(var i=-rad;i<=rad;i++){
+    var va=a[(ay+j)*W+ax+i],vb=b[(by+j)*W+bx+i];
+    sa+=va;sb+=vb;saa+=va*va;sbb+=vb*vb;sab+=va*vb;n++;
+  }
+  var vaa=saa-sa*sa/n,vbb=sbb-sb*sb/n;
+  if(vaa<80||vbb<80) return -2;
+  return (sab-sa*sb/n)/Math.sqrt(vaa*vbb);
+}
+function matchDot(ref,cur,W,H,p,refHalf,curHalf){
+  var ax=Math.round(p.x/2),ay=Math.round(p.y/2),best=-2,bx=0,by=0;
+  for(var dy=-18;dy<=18;dy++)for(var dx=-18;dx<=18;dx++){
+    var s=zncc(refHalf.g,curHalf.g,refHalf.w,refHalf.h,ax,ay,ax+dx,ay+dy,3);
+    if(s>best){best=s;bx=ax+dx;by=ay+dy;}
+  }
+  if(best<.42) return null;
+  var fx=bx*2,fy=by*2,fullBest=-2,rx=fx,ry=fy;
+  for(dy=-3;dy<=3;dy++)for(dx=-3;dx<=3;dx++){
+    var ss=zncc(ref,cur,W,H,p.x,p.y,fx+dx,fy+dy,5);
+    if(ss>fullBest){fullBest=ss;rx=fx+dx;ry=fy+dy;}
+  }
+  return fullBest>.52?{x:p.x,y:p.y,u:rx,v:ry,corr:fullBest}:null;
+}
+function trackDots(ref,cur,W,H,pts){
+  var rh=halfGray(ref,W,H),ch=halfGray(cur,W,H),out=[];
+  for(var i=0;i<pts.length;i++){
+    var m=matchDot(ref,cur,W,H,pts[i],rh,ch); if(m) out.push(m);
+  }
+  return out;
+}
+function solve3(M,b){
+  var a=[[M[0],M[1],M[2],b[0]],[M[3],M[4],M[5],b[1]],[M[6],M[7],M[8],b[2]]];
+  for(var c=0;c<3;c++){
+    var q=c;for(var r=c+1;r<3;r++)if(Math.abs(a[r][c])>Math.abs(a[q][c]))q=r;
+    if(Math.abs(a[q][c])<1e-8)return null;
+    var t=a[c];a[c]=a[q];a[q]=t;
+    var d=a[c][c];for(var k=c;k<4;k++)a[c][k]/=d;
+    for(r=0;r<3;r++)if(r!==c){var f=a[r][c];for(k=c;k<4;k++)a[r][k]-=f*a[c][k];}
+  }
+  return [a[0][3],a[1][3],a[2][3]];
+}
+function fitAffineRaw(ps){
+  if(ps.length<3)return null;
+  var M=[0,0,0,0,0,0,0,0,0],bu=[0,0,0],bv=[0,0,0];
+  for(var i=0;i<ps.length;i++){
+    var p=ps[i],z=[p.x,p.y,1];
+    for(var r=0;r<3;r++)for(var c=0;c<3;c++)M[r*3+c]+=z[r]*z[c];
+    for(r=0;r<3;r++){bu[r]+=z[r]*p.u;bv[r]+=z[r]*p.v;}
+  }
+  var u=solve3(M,bu),v=solve3(M,bv);if(!u||!v)return null;
+  return {A:[u[0],u[1],v[0],v[1]],t:[u[2],v[2]]};
+}
+function affineErr(f,p){
+  return Math.hypot(f.A[0]*p.x+f.A[1]*p.y+f.t[0]-p.u,
+                    f.A[2]*p.x+f.A[3]*p.y+f.t[1]-p.v);
+}
+function fitAffineRobust(ps){
+  if(ps.length<7)return null;
+  var best=[];
+  for(var it=0;it<48;it++){
+    var tri=[],used={};
+    while(tri.length<3){var k=Math.floor(Math.random()*ps.length);if(!used[k]){used[k]=1;tri.push(ps[k]);}}
+    var f=fitAffineRaw(tri);if(!f)continue;
+    var ins=ps.filter(function(p){return affineErr(f,p)<2.8;});
+    if(ins.length>best.length)best=ins;
+  }
+  if(best.length<7)return null;
+  var fit=fitAffineRaw(best);
+  for(it=0;it<2;it++){
+    var es=best.map(function(p){return affineErr(fit,p);}),med=median(es),lim=Math.max(1.4,med*2.8);
+    best=best.filter(function(p){return affineErr(fit,p)<=lim;});
+    if(best.length<7)return null;fit=fitAffineRaw(best);
+  }
+  var sum=0;best.forEach(function(p){var e=affineErr(fit,p);sum+=e*e;});
+  fit.n=best.length;fit.rms=Math.sqrt(sum/best.length);return fit;
+}
+
+/* 같은 이름으로 기존 FFT 분석기를 대체한다. */
+analyzeFrame=function(imgData,W,H){
+  if(!S.reference||S.reference.W!==W||S.reference.H!==H)
+    return {ok:false,why:"needReference"};
+  var cur=rgbaToGray(imgData,W,H),ref=S.reference.gray;
+  var outPairs=trackDots(ref,cur,W,H,S.reference.outPts);
+  var inPairs=trackDots(ref,cur,W,H,S.reference.inPts);
+  var C=fitAffineRobust(outPairs),inside=fitAffineRobust(inPairs);
+  if(!C||C.n<10)return {ok:false,why:"noDotsOut"};
+  if(!inside||inside.n<9)return {ok:false,why:"noDotsIn"};
+  var invC=inv2(C.A);if(!invC)return {ok:false,why:"illCond"};
+  var L=mul2(invC,inside.A);
+  var c1=Math.hypot(C.A[0],C.A[2]),c2=Math.hypot(C.A[1],C.A[3]);
+  var dot=Math.abs((C.A[0]*C.A[1]+C.A[2]*C.A[3])/(c1*c2));
+  var scale=Math.sqrt(Math.abs(C.A[0]*C.A[3]-C.A[1]*C.A[2]));
+  var skew=Math.max(dot,Math.min(1,C.rms/7));
+  if(dot>.42)return {ok:false,why:"tilt"};
+  if(scale<.78||scale>1.28)return {ok:false,why:"moved"};
+  if(AUTO&&CAL.D){lastD=CAL.D/scale;if(lastD<120||lastD>2000)return {ok:false,why:"badDist"};}
+  return {ok:true,A:L,score:Math.min(C.n,inside.n),skew:skew,
+          outPitchPx:scale,outScale:scale,outCount:C.n,inCount:inside.n};
+};
+
 /* ---------- 강건 집계 (중앙값 + MAD) ---------- */
 function median(a){if(!a.length)return NaN;
   var s=a.slice().sort(function(p,q){return p-q;}),m=s.length>>1;
@@ -782,7 +926,7 @@ function setReferenceUI(){
     btn.textContent=Math.min(S.refSamples.length,REF_SAMPLE_TARGET)+" / "+REF_SAMPLE_TARGET; btn.disabled=true;
   }else if(S.reference){
     $("refTitle").textContent="무안경 기준 완료";
-    $("refState").textContent="이제 기기와 격자를 움직이지 말고 안경을 넣으세요.";
+    $("refState").textContent="기기와 랜덤 점 타깃을 움직이지 말고 안경을 넣으세요.";
     btn.textContent="다시 잡기"; btn.disabled=false;
   }else{
     $("refTitle").textContent="무안경 기준이 필요합니다";
@@ -801,27 +945,26 @@ function startReference(){
 
 function finishReference(){
   var list=S.refSamples;
-  var A=[0,0,0,0], i, k;
-  for(k=0;k<4;k++) A[k]=median(list.map(function(r){return r.A[k];}));
-  var pitch=median(list.map(function(r){return r.outPitchPx;}));
-  var invA=inv2(A);
-  var matrixDev=median(list.map(function(r){
-    var sum=0; for(var j=0;j<4;j++) sum+=(r.A[j]-A[j])*(r.A[j]-A[j]);
-    return Math.sqrt(sum);
-  }));
-  var pitchDev=median(list.map(function(r){return Math.abs(r.outPitchPx-pitch)/pitch;}));
-
   S.refMode=false; S.refSamples=[];
-  if(!invA||matrixDev>.10||pitchDev>.10){
+  if(!list.length){S.reference=null;setReferenceUI();return;}
+  var W=list[0].W,H=list[0].H,n=W*H,avg=new Uint8Array(n);
+  for(var i=0;i<n;i++){
+    var sum=0;for(var j=0;j<list.length;j++)sum+=list[j].gray[i];
+    avg[i]=Math.round(sum/list.length);
+  }
+  var inPts=selectDotFeatures(avg,W,H,true),outPts=selectDotFeatures(avg,W,H,false);
+  if(inPts.length<14||outPts.length<18){
     S.reference=null; setReferenceUI();
-    setBanner("기준값이 흔들렸습니다 — 다시 잡아 주세요","bad");
-    toast("휴대폰을 고정한 뒤 무안경 기준을 다시 잡아 주세요.");
+    setBanner("랜덤 점이 충분하지 않습니다 — 타깃을 크게 비춰 주세요","bad");
+    toast("랜덤 점 타깃을 화면 가득 선명하게 맞춘 뒤 다시 잡아 주세요.");
     return;
   }
-  S.reference={A:A,invA:invA,outPitchPx:pitch};
+  S.reference={gray:avg,W:W,H:H,inPts:inPts,outPts:outPts,
+               invA:[1,0,0,1],outPitchPx:1};
+  lastD=CAL.D||Number($("distIn").value)||400;
   S.samples=[]; S.noLens=0; setReferenceUI(); renderLive(false);
-  setBanner("기준 완료 — 이제 안경을 원 안에 넣으세요","ok");
-  toast("무안경 기준이 저장되었습니다.");
+  setBanner("기준 완료 — 안경렌즈를 원 안에 넣으세요","ok");
+  toast("무안경 랜덤 점 기준이 저장되었습니다.");
 }
 
 /* ---------- 카메라 ---------- */
@@ -856,14 +999,18 @@ function stopCam(){
   setReferenceUI();
 }
 
-var WHY={noGrid:"격자가 안 보입니다 — 화면을 밝게",
-  noGridIn:"렌즈 안 격자를 못 찾았습니다",
-  noGridOut:"렌즈 바깥 격자가 필요합니다 — 격자가 너무 잘거나 안 보입니다",
+var WHY={noGrid:"랜덤 점이 안 보입니다 — 화면을 밝게",
+  noGridIn:"렌즈 안 무늬를 찾지 못했습니다",
+  noGridOut:"렌즈 바깥 무늬가 필요합니다",
+  noDotsIn:"렌즈 안 랜덤 점을 추적하지 못했습니다 — 초점을 확인하세요",
+  noDotsOut:"렌즈 밖 랜덤 점을 가리지 마세요",
+  needReference:"무안경 기준을 먼저 잡아 주세요",
+  moved:"촬영 위치가 크게 바뀌었습니다 — 기준을 다시 잡으세요",
   tilt:"기울었습니다 — 화면과 평행하게",
   range:"배율이 범위를 벗어났습니다 — 거리 확인",
-  illCond:"격자 방향이 불안정합니다",
+  illCond:"점 변형 방향이 불안정합니다",
   tooClose:"거리가 너무 짧습니다",
-  tooCoarse:"격자가 너무 큽니다 — 더 촘촘한 격자를 쓰거나 가까이",
+  tooCoarse:"랜덤 점이 너무 큽니다 — 타깃을 더 멀리 두세요",
   badDist:"자동 거리가 범위를 벗어났습니다 — 보정값 확인"};
 
 function tick(){
@@ -874,20 +1021,26 @@ function tick(){
   ctx.drawImage(v,0,0,W,H);
   var d=ctx.getImageData(0,0,W,H).data;
 
+  /* 기준 촬영은 분석보다 먼저 처리한다. 5장의 평균으로 센서 노이즈를 줄인다. */
+  if(S.refMode){
+    resetAutoSequence();
+    var gray=rgbaToGray(d,W,H);
+    var inTest=selectDotFeatures(gray,W,H,true),outTest=selectDotFeatures(gray,W,H,false);
+    if(inTest.length<14||outTest.length<18){
+      setBanner("랜덤 점을 원 안과 바깥에 충분히 보이게 맞춰 주세요","bad");
+      return;
+    }
+    S.refSamples.push({gray:gray,W:W,H:H});
+    setReferenceUI();renderLive(false);
+    setBanner("무안경 기준 측정 중… "+Math.min(S.refSamples.length,REF_SAMPLE_TARGET)+"/"+REF_SAMPLE_TARGET,"warn");
+    if(S.refSamples.length>=REF_SAMPLE_TARGET)finishReference();
+    return;
+  }
+
   var r=analyzeFrame(d,W,H);
   if(r.ok){
     S.bad=0; S.last=r;
     if(AUTO) syncGeom();
-
-    /* 기준 잡기 중에는 도수를 계산하지 않고 원시 배율만 모은다. */
-    if(S.refMode){
-      resetAutoSequence();
-      S.refSamples.push({A:r.A.slice(),outPitchPx:r.outPitchPx});
-      setReferenceUI(); renderLive(false);
-      setBanner("무안경 기준 측정 중… "+Math.min(S.refSamples.length,REF_SAMPLE_TARGET)+"/"+REF_SAMPLE_TARGET,"warn");
-      if(S.refSamples.length>=REF_SAMPLE_TARGET) finishReference();
-      return;
-    }
 
     if(!S.reference){
       resetAutoSequence(); S.samples=[]; renderLive(false);
@@ -903,9 +1056,8 @@ function tick(){
       return;
     }
 
-    /* A_observed = A_camera × A_lens 이므로 기준의 역행렬을 왼쪽에서 제거한다. */
-    var corrected=mul2(S.reference.invA,r.A);
-    var measured=matrixToMeasurement(corrected);
+    /* 랜덤 점 분석기에서 렌즈 밖 카메라 움직임은 이미 제거되었다. */
+    var measured=matrixToMeasurement(r.A);
     if(!measured.ok){
       resetAutoSequence(); S.samples=[]; renderLive(false);
       setBanner(WHY[measured.why]||"측정 범위를 벗어났습니다","bad");
@@ -932,7 +1084,7 @@ function tick(){
     addAutoSample(measured.vec,r.skew);
   }else{
     resetAutoSequence();
-    /* 격자를 계속 못 잡으면 예전 표본이 남아 엉뚱한 값을 계속 보여준다 */
+    /* 랜덤 점을 계속 못 잡으면 예전 표본이 남지 않도록 비운다. */
     S.bad=(S.bad||0)+1;
     if(S.bad>30 && S.samples.length){ S.samples=[]; }
     setBanner(WHY[r.why]||"정렬 중…", "bad");
@@ -1073,13 +1225,26 @@ function drawTarget(){
   cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.height*dpr);
   var c=cv.getContext("2d");
   c.fillStyle="#fff"; c.fillRect(0,0,cv.width,cv.height);
-  var pitch=Math.round(Math.min(cv.width,cv.height)/28);
-  c.strokeStyle="#111"; c.lineWidth=Math.max(1,dpr);
-  var x,y;
-  for(x=pitch/2;x<cv.width;x+=pitch){c.beginPath();c.moveTo(x,0);c.lineTo(x,cv.height);c.stroke();}
-  for(y=pitch/2;y<cv.height;y+=pitch){c.beginPath();c.moveTo(0,y);c.lineTo(cv.width,y);c.stroke();}
-  c.fillStyle="#111";
-  c.beginPath();c.arc(cv.width/2,cv.height/2,pitch*.22,0,6.284);c.fill();
+  var seed=20260907;
+  function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+  var pad=Math.min(cv.width,cv.height)*.055;
+  c.fillStyle="#090909";
+  /* 크기와 간격이 비주기적인 점: 각 점 주변 배열 전체가 고유한 주소가 된다. */
+  var count=Math.max(650,Math.min(2200,Math.round(r.width*r.height/700)));
+  for(var i=0;i<count;i++){
+    var x=pad+rnd()*(cv.width-pad*2),y=pad+rnd()*(cv.height-pad*2);
+    var rr=(2.2+rnd()*3.8)*dpr;
+    c.beginPath();c.arc(x,y,rr,0,Math.PI*2);c.fill();
+  }
+  /* 서로 다른 네 귀퉁이 마커로 상하·좌우와 화면 기울기를 구분한다. */
+  var m=Math.min(cv.width,cv.height)*.038,l=m*.95;
+  c.strokeStyle="#090909";c.lineWidth=Math.max(5,dpr*4);c.lineCap="square";
+  function corner(x,y,sx,sy){c.beginPath();c.moveTo(x+sx*l,y);c.lineTo(x,y);c.lineTo(x,y+sy*l);c.stroke();}
+  corner(m,m,1,1);corner(cv.width-m,m,-1,1);corner(m,cv.height-m,1,-1);corner(cv.width-m,cv.height-m,-1,-1);
+  c.beginPath();c.arc(m*1.45,m*1.45,m*.22,0,Math.PI*2);c.fill();
+  c.fillRect(cv.width-m*1.72,m*1.18,m*.44,m*.44);
+  c.beginPath();c.moveTo(m*1.15,cv.height-m*1.25);c.lineTo(m*1.75,cv.height-m*1.25);c.lineTo(m*1.45,cv.height-m*1.78);c.closePath();c.fill();
+  c.beginPath();c.arc(cv.width-m*1.45,cv.height-m*1.45,m*.30,0,Math.PI*2);c.stroke();
 }
 function openTarget(){$("tgtView").classList.remove("hidden");requestAnimationFrame(drawTarget);}
 function closeTarget(){$("tgtView").classList.add("hidden");}
@@ -1113,7 +1278,7 @@ $("distIn").addEventListener("input",syncGeom);
 $("posIn").addEventListener("input",syncGeom);
 
 function setMode(auto){
-  if(auto && !(CAL.f&&CAL.P)){ toast("먼저 '자동 거리 보정'을 한 번 해주세요."); return; }
+  if(auto && !CAL.D){ toast("먼저 '자동 거리 보정'을 한 번 해주세요."); return; }
   AUTO=auto;
   $("modeAuto").classList.toggle("on",auto);
   $("modeMan").classList.toggle("on",!auto);
@@ -1125,12 +1290,11 @@ $("modeAuto").addEventListener("click",function(){setMode(true);});
 $("modeMan").addEventListener("click",function(){setMode(false);});
 
 $("calBtn").addEventListener("click",function(){
-  var P=Number($("pitchMm").value), D=Number($("calDist").value);
-  if(!(P>0)||!(D>0)){ toast("격자 크기(mm)와 실제 거리(mm)를 입력하세요."); return; }
-  if(!S.last||!S.last.outPitchPx){ toast("먼저 카메라를 켜고 격자를 안정적으로 잡아 주세요."); return; }
-  /* pitch_px = f*P/D  =>  f = pitch_px*D/P */
-  CAL={f:S.last.outPitchPx*D/P, P:P};
-  try{ localStorage.setItem("lmCalV1",JSON.stringify(CAL)); }catch(e){}
+  var D=Number($("calDist").value);
+  if(!(D>0)){ toast("현재 카메라와 타깃 사이 거리(mm)를 입력하세요."); return; }
+  if(!S.reference){ toast("먼저 무안경 기준을 잡아 주세요."); return; }
+  CAL={D:D};lastD=D;
+  try{ localStorage.setItem("lmDotCalV2",JSON.stringify(CAL)); }catch(e){}
   syncGeom();
   toast("보정 완료 — 이제 자동 거리를 쓸 수 있습니다.");
 });
