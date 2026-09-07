@@ -268,8 +268,9 @@
 
     <div class="row">
       <button id="camBtn" class="btn pri" type="button">카메라 켜기</button>
-      <button id="saveBtn" class="btn go" type="button" disabled>이 눈 저장</button>
+      <button id="saveBtn" class="btn go" type="button" disabled>이 눈 저장 (수동)</button>
     </div>
+    <p class="hint" id="autoSaveHint">기울기와 측정값이 5회 연속 안정되면 자동 저장됩니다.</p>
     <div class="row">
       <button id="resetBtn" class="btn" type="button">스캔 초기화</button>
       <button id="demoBtn" class="btn" type="button">데모</button>
@@ -318,7 +319,7 @@
       <ol>
         <li>우안/좌안을 선택합니다.</li>
         <li>점선 원 안에 렌즈 중앙이 오도록 맞춥니다.</li>
-        <li>초록 "안정됨"이 뜰 때까지 3~5초 유지 → <b>이 눈 저장</b>.</li>
+        <li>초록 안내가 뜨도록 그대로 유지하면 안정된 측정 5회 후 <b>자동 저장</b>됩니다.</li>
         <li>반대쪽 눈으로 반복합니다.</li>
       </ol>
       <h3>정확도를 올리려면</h3>
@@ -363,13 +364,55 @@ var S={
   reference:null,        // 안경이 없을 때의 중앙/바깥 격자 배율 행렬
   refSamples:[],
   refMode:false,
+  autoSamples:[],
+  autoSaveTimer:null,
+  autoSavePending:false,
+  autoSaveCooldownUntil:0,
   N:64                   // FFT 패치 크기
 };
 var MIN_LENS_POWER=.30;  // 이보다 작은 변화는 무안경/촬영 잡음으로 취급
 var REF_SAMPLE_TARGET=5; // 빠른 기준 보정에 필요한 최소 표본
+var AUTO_SAVE_SAMPLES=5; // 기울기와 측정값이 연속으로 안정되어야 하는 횟수
+var AUTO_SAVE_MAX_SKEW=.35;
+var AUTO_SAVE_MAX_SPREAD=.45;
+var AUTO_SAVE_MAX_STEP=.45;
+var AUTO_SAVE_SWITCH_DELAY=3000; // 반대쪽 렌즈로 옮길 시간
 
 function toast(m){var t=$("toast");t.textContent=m;t.classList.add("on");
   clearTimeout(toast.t);toast.t=setTimeout(function(){t.classList.remove("on");},2200);}
+
+function cancelAutoSave(){
+  if(S.autoSaveTimer){clearTimeout(S.autoSaveTimer);S.autoSaveTimer=null;}
+  S.autoSavePending=false;
+}
+
+function resetAutoSequence(){
+  cancelAutoSave();
+  S.autoSamples=[];
+}
+
+function vecStep(a,b){
+  return Math.abs(a.M-b.M)+Math.abs(a.J0-b.J0)+Math.abs(a.J45-b.J45);
+}
+
+/* 최근 표본부터 거꾸로 확인해 기울기와 값이 연속으로 안정된 횟수를 센다. */
+function autoSaveState(){
+  var count=S.autoSamples.length;
+  var recent=count>=AUTO_SAVE_SAMPLES?S.autoSamples.slice(-AUTO_SAVE_SAMPLES):[];
+  var agg=recent.length?robustVec(recent):null;
+  return {count:count,agg:agg,
+    ready:count>=AUTO_SAVE_SAMPLES&&agg&&agg.spread<AUTO_SAVE_MAX_SPREAD&&
+      recent.every(function(v){return isFinite(v._skew)&&v._skew<=AUTO_SAVE_MAX_SKEW;})};
+}
+
+function addAutoSample(vec,skew){
+  if(!isFinite(skew)||skew>AUTO_SAVE_MAX_SKEW){resetAutoSequence();return;}
+  var prev=S.autoSamples.length?S.autoSamples[S.autoSamples.length-1]:null;
+  if(prev&&vecStep(prev,vec)>AUTO_SAVE_MAX_STEP) S.autoSamples=[];
+  vec._skew=skew;
+  S.autoSamples.push(vec);
+  if(S.autoSamples.length>AUTO_SAVE_SAMPLES) S.autoSamples.shift();
+}
 
 /* ---------- 광학 ---------- */
 /* 자동 거리 보정값: f=초점거리(px), P=격자 한 칸 실제 크기(mm) */
@@ -750,6 +793,7 @@ function setReferenceUI(){
 
 function startReference(){
   if(!S.stream){toast("먼저 카메라를 켜 주세요.");return;}
+  resetAutoSequence();
   S.reference=null; S.refSamples=[]; S.refMode=true; S.samples=[]; S.bad=0;
   renderLive(false); setReferenceUI();
   setBanner("안경을 치우고 그대로 유지해 주세요","warn");
@@ -793,6 +837,7 @@ async function startCam(){
     $("vid").classList.remove("hidden");
     $("empty").classList.add("hidden");
     $("camBtn").textContent="카메라 끄기";
+    resetAutoSequence();
     S.samples=[]; S.reference=null; S.refSamples=[]; S.refMode=false;
     S.last=null; S.bad=0; setReferenceUI(); renderLive();
     setBanner("먼저 안경 없이 ‘기준 잡기’를 눌러 주세요","warn");
@@ -801,6 +846,7 @@ async function startCam(){
   }catch(e){ toast("카메라 권한을 허용해 주세요. (HTTPS 필요)"); }
 }
 function stopCam(){
+  resetAutoSequence();
   clearInterval(S.timer); S.timer=null;
   if(S.stream){S.stream.getTracks().forEach(function(t){t.stop();}); S.stream=null;}
   $("vid").srcObject=null; $("vid").classList.add("hidden");
@@ -835,6 +881,7 @@ function tick(){
 
     /* 기준 잡기 중에는 도수를 계산하지 않고 원시 배율만 모은다. */
     if(S.refMode){
+      resetAutoSequence();
       S.refSamples.push({A:r.A.slice(),outPitchPx:r.outPitchPx});
       setReferenceUI(); renderLive(false);
       setBanner("무안경 기준 측정 중… "+Math.min(S.refSamples.length,REF_SAMPLE_TARGET)+"/"+REF_SAMPLE_TARGET,"warn");
@@ -843,7 +890,7 @@ function tick(){
     }
 
     if(!S.reference){
-      S.samples=[]; renderLive(false);
+      resetAutoSequence(); S.samples=[]; renderLive(false);
       setBanner("안경을 치우고 ‘기준 잡기’를 먼저 눌러 주세요","warn");
       return;
     }
@@ -851,7 +898,7 @@ function tick(){
     /* 기준 이후 줌/거리가 바뀌면 카메라 왜곡 보정도 더 이상 유효하지 않다. */
     var pitchShift=Math.abs(r.outPitchPx-S.reference.outPitchPx)/S.reference.outPitchPx;
     if(pitchShift>.20){
-      S.samples=[]; renderLive(false);
+      resetAutoSequence(); S.samples=[]; renderLive(false);
       setBanner("촬영 위치가 바뀌었습니다 — 무안경 기준을 다시 잡으세요","bad");
       return;
     }
@@ -860,23 +907,31 @@ function tick(){
     var corrected=mul2(S.reference.invA,r.A);
     var measured=matrixToMeasurement(corrected);
     if(!measured.ok){
-      S.samples=[]; renderLive(false);
+      resetAutoSequence(); S.samples=[]; renderLive(false);
       setBanner(WHY[measured.why]||"측정 범위를 벗어났습니다","bad");
       return;
     }
 
     /* 기준과 차이가 거의 없으면 안경이 없는 것으로 판정한다. */
     if(measured.signal<MIN_LENS_POWER){
-      S.noLens=(S.noLens||0)+1; S.samples=[];
+      S.noLens=(S.noLens||0)+1; resetAutoSequence(); S.samples=[];
       renderLive(false);
       setBanner("안경이 감지되지 않습니다 — 렌즈를 원 안에 넣으세요","warn");
       return;
     }
 
     S.noLens=0;
+    if(Date.now()<S.autoSaveCooldownUntil){
+      resetAutoSequence(); S.samples=[]; renderLive(false);
+      setBanner("반대쪽 렌즈를 원 안에 맞춰 주세요","ok");
+      return;
+    }
+    measured.vec._skew=r.skew;
     S.samples.push(measured.vec);
     if(S.samples.length>60) S.samples.shift();
+    addAutoSample(measured.vec,r.skew);
   }else{
+    resetAutoSequence();
     /* 격자를 계속 못 잡으면 예전 표본이 남아 엉뚱한 값을 계속 보여준다 */
     S.bad=(S.bad||0)+1;
     if(S.bad>30 && S.samples.length){ S.samples=[]; }
@@ -894,6 +949,7 @@ function renderLive(gotOne){
   $("mLeft").textContent="유효 스캔 "+n;
   var agg=robustVec(S.samples);
   if(!agg||n<2){
+    cancelAutoSave();
     $("lSph").textContent="—";$("lCyl").textContent="—";$("lAxis").textContent="—";
     $("mFill").style.width="0%"; $("mRight").textContent="—";
     $("saveBtn").disabled=true;
@@ -903,6 +959,7 @@ function renderLive(gotOne){
   var rx=vecToRx(agg.vec);
   /* 여러 프레임 평균이 다시 0D 부근이면 숫자를 표시하지 않는다. */
   if(S.reference && Math.max(Math.abs(rx.sph),Math.abs(rx.sph+rx.cyl))<MIN_LENS_POWER){
+    cancelAutoSave();
     S.samples=[];
     $("lSph").textContent="—";$("lCyl").textContent="—";$("lAxis").textContent="—";
     $("mFill").style.width="0%"; $("mRight").textContent="—";
@@ -912,6 +969,7 @@ function renderLive(gotOne){
   }
   /* 산포가 크면 숫자를 보여주지 않는다. 흔들리는 값을 자신 있게 띄우는 게 가장 나쁘다. */
   if(agg.spread>1.1){
+    cancelAutoSave();
     $("lSph").textContent="—";$("lCyl").textContent="—";$("lAxis").textContent="—";
     $("mFill").style.width="0%";
     $("mRight").textContent="±"+agg.spread.toFixed(2)+"D 불안정";
@@ -929,21 +987,57 @@ function renderLive(gotOne){
   $("mFill").style.width=pct+"%";
   $("mRight").textContent="±"+agg.spread.toFixed(2)+"D";
   $("saveBtn").disabled=!(n>=5&&agg.spread<.65);
+  var auto=autoSaveState();
   var tiltMsg="";
   if(S.last&&S.last.skew>.35) tiltMsg=" · 기울어짐(보정됨)";
-  if(n>=5&&agg.spread<.45) setBanner("안정됨 — 저장할 수 있습니다"+tiltMsg,"ok");
-  else if(gotOne) setBanner("안정화 중… 움직이지 마세요"+tiltMsg,"warn");
+  var canAuto=gotOne===true&&S.stream&&S.reference&&!S.refMode&&
+    Date.now()>=S.autoSaveCooldownUntil;
+  if(auto.ready&&canAuto){
+    setBanner("안정 측정 5/5 — 자동 저장 중","ok");
+    if(!S.autoSavePending){
+      S.autoSavePending=true;
+      S.autoSaveTimer=setTimeout(function(){
+        S.autoSaveTimer=null;
+        var check=autoSaveState();
+        if(!S.autoSavePending||!S.stream||!S.reference||S.refMode||!check.ready){
+          S.autoSavePending=false; renderLive(false); return;
+        }
+        S.autoSavePending=false;
+        saveEye(true);
+      },420);
+    }
+  }else{
+    cancelAutoSave();
+    if(n>=5&&agg.spread<.45){
+      if(Date.now()<S.autoSaveCooldownUntil)
+        setBanner("반대쪽 렌즈를 원 안에 맞춰 주세요","ok");
+      else setBanner("안정됨 — 자동 저장 확인 중 "+auto.count+"/5"+tiltMsg,"ok");
+    }else if(gotOne){
+      setBanner("자동 저장 확인 중 "+auto.count+"/5 — 그대로 유지"+tiltMsg,"warn");
+    }
+  }
 }
 
 /* ---------- 저장/결과 ---------- */
-function saveEye(){
-  var agg=robustVec(S.samples); if(!agg) return;
+function saveEye(automatic){
+  automatic=automatic===true;
+  var source=automatic?S.autoSamples.slice(-AUTO_SAVE_SAMPLES):S.samples;
+  var agg=robustVec(source); if(!agg) return;
+  resetAutoSequence();
+  var savedEye=S.eye;
   S.results[S.eye]=vecToRx(agg.vec);
   renderResults(); renderEyeTabs();
-  toast((S.eye==="R"?"우안":"좌안")+" 저장됨 ("+agg.n+"표본)");
+  toast((S.eye==="R"?"우안":"좌안")+(automatic?" 자동 저장됨 (":" 저장됨 (")+agg.n+"표본)");
+  if(automatic&&navigator.vibrate) navigator.vibrate(80);
+  S.autoSaveCooldownUntil=automatic?Date.now()+AUTO_SAVE_SWITCH_DELAY:0;
   S.samples=[]; renderLive();
   /* 자동으로 반대쪽으로 */
-  if(!S.results[S.eye==="R"?"L":"R"]) setEye(S.eye==="R"?"L":"R");
+  if(!S.results[S.eye==="R"?"L":"R"]){
+    setEye(S.eye==="R"?"L":"R");
+    if(automatic) setBanner((savedEye==="R"?"우안":"좌안")+" 자동 저장 완료 — 반대쪽 렌즈를 맞춰 주세요","ok");
+  }else if(automatic){
+    setBanner("양안 자동 저장 완료","ok");
+  }
 }
 function renderResults(){
   ["R","L"].forEach(function(e){
@@ -963,6 +1057,7 @@ function renderEyeTabs(){
   $("doneL").textContent=S.results.L?"✓ 저장됨":"";
 }
 function setEye(e){
+  resetAutoSequence();
   S.eye=e; S.samples=[];
   $("eyeR").classList.toggle("on",e==="R");
   $("eyeL").classList.toggle("on",e==="L");
@@ -1011,8 +1106,8 @@ $("eyeR").addEventListener("click",function(){setEye("R");});
 $("eyeL").addEventListener("click",function(){setEye("L");});
 $("camBtn").addEventListener("click",function(){S.stream?stopCam():startCam();});
 $("refBtn").addEventListener("click",startReference);
-$("saveBtn").addEventListener("click",saveEye);
-$("resetBtn").addEventListener("click",function(){S.samples=[];renderLive();toast("초기화했습니다");});
+$("saveBtn").addEventListener("click",function(){saveEye(false);});
+$("resetBtn").addEventListener("click",function(){resetAutoSequence();S.samples=[];renderLive();toast("초기화했습니다");});
 $("demoBtn").addEventListener("click",demo);
 $("distIn").addEventListener("input",syncGeom);
 $("posIn").addEventListener("input",syncGeom);
@@ -1024,7 +1119,7 @@ function setMode(auto){
   $("modeMan").classList.toggle("on",!auto);
   $("autoBox").classList.toggle("hidden",!auto);
   $("manBox").classList.toggle("hidden",auto);
-  S.samples=[]; syncGeom(); renderLive();
+  resetAutoSequence(); S.samples=[]; syncGeom(); renderLive();
 }
 $("modeAuto").addEventListener("click",function(){setMode(true);});
 $("modeMan").addEventListener("click",function(){setMode(false);});
