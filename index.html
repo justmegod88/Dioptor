@@ -223,13 +223,19 @@
       <button id="refBtn" class="btn" type="button" disabled>기준 잡기</button>
     </div>
     <p class="hint" id="distInfo"></p>
-    <div class="row" style="margin-top:6px;grid-template-columns:44px 1fr 44px">
+    <div class="fieldrow" style="margin-top:8px">
+      <label for="devSel">내 휴대폰 기종</label>
+      <select id="devSel" style="width:auto;max-width:210px;padding:9px 10px;
+        border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--ink)"></select>
+    </div>
+    <div class="row" style="margin-top:4px;grid-template-columns:1fr 44px 44px">
+      <button id="gCardReset" class="btn" type="button">가이드 크기 초기화</button>
       <button id="gCardMinus" class="btn" type="button">−</button>
-      <button id="gCardSave" class="btn" type="button">카드가 딱 맞으면: 20cm로 저장</button>
       <button id="gCardPlus" class="btn" type="button">+</button>
     </div>
-    <p class="hint">실물 카드(신용카드 등)를 위 노란 점선 테두리에 딱 맞춰 놓고, 안 맞으면
-      −/+로 테두리 크기를 조절한 뒤 저장하세요. 그 상태가 정확히 20cm입니다.</p>
+    <p class="hint">기종을 고르면 노란 테두리가 <b>20cm에서 신용카드가 보이는 크기</b>로
+      그려집니다. 실물 카드를 테두리에 맞추면 그 거리가 20cm입니다. 테두리가 실제
+      카드와 미묘하게 다르면 −/+로 미세조정하세요(자동 저장).</p>
 
     <div class="live">
       <div class="cell"><span>SPH</span><strong id="lSph">—</strong></div>
@@ -291,18 +297,15 @@
         <li>반대쪽 눈으로 반복합니다.</li>
       </ol>
       <h3>거리 맞추기 (카드 정렬 가이드)</h3>
-      <p>화면에 노란 점선 테두리가 보입니다. ① 기기가 카메라 초점 센서를
-      지원하면 거리를 자동으로 읽고, ② 아니면 <b>이 테두리가 정확히 200mm(20cm)
-      에서 신용카드가 보이는 크기</b>로 계산되어 있습니다. 실물 카드를 책 옆에
-      놓고 테두리와 크기를 맞추면 그 순간 카메라↔책 거리가 20cm라는 뜻입니다.
-      화면을 픽셀 단위로 분석해 카드를 자동으로 찾는 방식이 아니라, 사람이
-      눈으로 맞추는 방식이라 오탐지가 없습니다.</p>
-      <p><b>테두리가 실제 카드와 안 맞을 때</b> — 카메라 화각을 기기별로 정확히
-      몰라 기본 추정치로 그려지기 때문입니다. −/+ 버튼으로 테두리 크기를
-      조절해 실물 카드에 맞춘 뒤 ‘카드가 딱 맞으면: 20cm로 저장’을 누르면,
-      이 기기의 진짜 초점거리를 계산해 저장합니다. 그 다음부터는 테두리가
-      처음부터 정확한 크기로 나타납니다(1회만 하면 됩니다). 기준을 잡은
-      뒤에는 휴대폰이 살짝 움직여도 배경 배율 변화로 거리를 계속 추적합니다.</p>
+      <p><b>먼저 ‘내 휴대폰 기종’을 한 번 선택하세요.</b> 그러면 화면의 노란 점선
+      테두리가 <b>20cm 거리에서 신용카드가 보이는 크기</b>로 그려집니다. 실물 카드를
+      책 옆에 놓고 이 테두리와 크기가 같아지도록 휴대폰을 위아래로 움직이면,
+      그 위치가 카메라↔책 20cm입니다. 자를 쓸 필요가 없습니다.</p>
+      <p>기종별 초점거리는 제조사 공개 사양을 근거로 한 근삿값이고, 브라우저가
+      실제로 잡는 화각이 조금 다를 수 있습니다. 테두리가 실물 카드와 미묘하게
+      안 맞으면 −/+로 미세조정하면 자동 저장되고, ‘가이드 크기 초기화’로 기종
+      기본값으로 되돌릴 수 있습니다. 기기가 초점 센서를 지원하면 그 값이 우선
+      사용되며, 기준을 잡은 뒤에는 배경 배율 변화로 거리를 계속 추적합니다.</p>
       <h3>정확도를 올리려면</h3>
       <ul>
         <li><b>거리를 정확히</b> — 가장 큰 오차원입니다. 자동 인식이 실패해 기본값
@@ -400,26 +403,42 @@ function addAutoSample(vec,skew){
 }
 
 /* ---------- 광학 ---------- */
-/* 거리: 기기가 지원하면 센서(focusDistance)로 자동 인식하고, 아니면 항상 200mm로
-   가정한다. 그 가정이 실제로 맞도록, 화면에 '카드 정렬 가이드' 테두리를 그려서
-   실물 카드(신용카드 등, 85.6mm 폭)를 거기에 맞추면 카메라↔책 거리가 정확히
-   200mm가 되게 한다. 기준을 잡은 이후에는 배경 배율 변화로 거리 변화를 추적한다
+/* 거리: 기기가 지원하면 센서(focusDistance)로 자동 인식하고, 아니면 200mm로 가정한다.
+   그 가정이 맞도록 화면에 '카드 정렬 가이드' 테두리를 그린다. 테두리 크기는
+   사용자가 고른 기기 모델의 후면 메인 카메라 초점거리(35mm 환산)로 계산하므로
+   자를 쓸 필요가 없다. 기준을 잡은 뒤에는 배경 배율 변화로 거리 변화를 추적한다
    (lastD = CAL.D / scale, analyzeFrame 참고). */
 var CAL=(function(){
-  try{ var v=JSON.parse(localStorage.getItem("lmDotCalV2")||"null");
-       return (v&&v.f)?v:{f:null,D:null}; }catch(e){ return {f:null,D:null}; }
+  try{ var v=JSON.parse(localStorage.getItem("lmDotCalV3")||"null");
+       return v||{dev:"",scale:1}; }catch(e){ return {dev:"",scale:1}; }
 })();
 var CARD_WIDTH_MM=85.60;        // ISO/IEC 7810 ID-1 표준 카드(신용카드 등) 폭
 var CARD_ASPECT=1.586;          // 카드 가로:세로 비율
 var GUIDE_TARGET_MM=200;        // 가이드 테두리가 나타내는 목표 거리
+var FRAME35_DIAG_MM=43.267;     // 35mm 판형 대각선 — 환산 초점거리의 기준
 var DIST_MIN_MM=120, DIST_MAX_MM=600;
-var ASSUMED_HFOV_DEG=66;        // 초점거리 실측 보정이 없을 때 쓰는 후면 카메라 대략 화각
-var GUIDE_REF_W=384;            // CAL.f를 표현하는 기준 프레임 폭(px)
-var guideScale=1;               // 사용자가 −/+로 미세 조정하는 가이드 배율
 var AUTO=false;
 var lastD=200;
 var distSource="default";       // "sensor" | "default"
 var TARGET_ONLY=new URLSearchParams(location.search).get("target")==="1";
+
+/* 후면 메인(광각) 카메라의 35mm 환산 초점거리(mm). 공개된 제조사 사양 기준의
+   근사값이며, 브라우저가 실제로 잡는 화각과 다를 수 있어 −/+ 미세조정을 함께 둔다. */
+var DEVICES=[
+  {id:"",       name:"기기를 선택하세요",                f:0},
+  {id:"ip_pro", name:"iPhone 14/15/16 Pro·Pro Max",     f:24},
+  {id:"ip_std", name:"iPhone 14/15/16 · 11/12/13 전체", f:26},
+  {id:"ip_old", name:"iPhone X / XS / XR",              f:26},
+  {id:"ip_se",  name:"iPhone SE (2·3세대)",              f:28},
+  {id:"gal_s",  name:"Galaxy S 시리즈 (S22~S25)",        f:24},
+  {id:"gal_a",  name:"Galaxy A / 기타 갤럭시",            f:26},
+  {id:"pixel",  name:"Google Pixel (7~9)",              f:25},
+  {id:"etc",    name:"기타 안드로이드",                   f:26}
+];
+function deviceFocalEq(){
+  for(var i=0;i<DEVICES.length;i++) if(DEVICES[i].id===CAL.dev) return DEVICES[i].f;
+  return 0;
+}
 
 function totalDistance(){
   return lastD;
@@ -429,14 +448,6 @@ function geom(){
   return {a:a,b:b,e:e,eM:e/1000};
 }
 function syncGeom(){ renderDistUI(); }
-
-/* 후면 카메라의 대략적인 초점거리(px), 기준 프레임 폭 GUIDE_REF_W 기준.
-   실측 보정값(CAL.f)이 있으면 그것을 우선한다. */
-function focalPxAtRefWidth(){
-  if(CAL.f) return CAL.f;
-  var hfov=ASSUMED_HFOV_DEG*Math.PI/180;
-  return (GUIDE_REF_W/2)/Math.tan(hfov/2);
-}
 
 /* 카메라 API의 focusDistance(지원 기기에서만) 로 절대 거리를 읽어본다.
    대부분의 아이폰 사파리·다수 기기는 지원하지 않으므로, 실패하면 조용히 null. */
@@ -460,36 +471,41 @@ function determineDistanceMM(){
 }
 
 /* ---------- 카드 정렬 가이드 ----------
-   화면에 200mm 거리에서의 카드 겉보기 크기를 계산해 테두리로 그린다.
-   실물 카드를 거기에 맞추면(필요시 −/+로 미세조정) 거리가 200mm임이 보장된다.
-   '저장'을 누르면 그 순간의 테두리 크기를 기준으로 이 기기의 진짜 초점거리를
-   역산해 localStorage에 저장하므로, 다음부터는 가이드가 처음부터 정확하다. */
+   선택한 기기의 초점거리로 '200mm에서 카드가 화면에 보이는 크기'를 계산해 테두리로
+   그린다. 영상이 object-fit:cover로 잘려 표시되는 것까지 반영해야 실제 화면 크기와
+   맞으므로, 비디오 원본 해상도와 stage의 실제 표시 크기를 함께 사용한다. */
 function guideWidthSvg(){
-  var f=focalPxAtRefWidth();
-  var wpxAtRef=f*CARD_WIDTH_MM/GUIDE_TARGET_MM;      /* 기준폭(384px) 프레임에서의 카드 폭 */
-  return 300*(wpxAtRef/GUIDE_REF_W)*guideScale;       /* svg viewBox(300폭) 단위로 환산 */
+  var fEq=deviceFocalEq(); if(!fEq) return 0;
+  var v=$("vid"), st=$("stage");
+  var vw=v.videoWidth, vh=v.videoHeight;
+  var sw=st.clientWidth, sh=st.clientHeight;
+  if(!vw||!vh||!sw||!sh) return 0;
+  var fPx=fEq*Math.hypot(vw,vh)/FRAME35_DIAG_MM;      /* 비디오 픽셀 단위 초점거리 */
+  var cardVideoPx=fPx*CARD_WIDTH_MM/GUIDE_TARGET_MM;  /* 200mm에서의 카드 폭(비디오 px) */
+  var cover=Math.max(sw/vw,sh/vh);                    /* object-fit:cover 배율 */
+  return cardVideoPx*cover*(300/sw)*(CAL.scale||1);   /* svg viewBox(300폭) 단위 */
 }
 function renderCardGuide(){
   var w=guideWidthSvg(), h=w/CARD_ASPECT;
-  var cx=150, cy=372, x=cx-w/2, y=cy-h/2;
-  var r=$("gCard"); if(r){
+  var r=$("gCard"), lb=$("gCardLabel");
+  if(!w){ if(r) r.setAttribute("width",0); if(lb) lb.setAttribute("opacity",0); return; }
+  if(lb) lb.setAttribute("opacity",".8");
+  var cx=150, cy=350, x=cx-w/2, y=cy-h/2;
+  if(r){
     r.setAttribute("x",x);r.setAttribute("y",y);
     r.setAttribute("width",Math.max(2,w));r.setAttribute("height",Math.max(2,h));
   }
-  var lb=$("gCardLabel"); if(lb) lb.setAttribute("y",Math.max(14,y-8));
+  if(lb) lb.setAttribute("y",Math.max(14,y-8));
 }
 function nudgeGuide(mult){
-  guideScale=Math.max(.5,Math.min(2,guideScale*mult));
-  renderCardGuide();
+  CAL.scale=Math.max(.4,Math.min(2.5,(CAL.scale||1)*mult));
+  saveCal(); renderCardGuide();
 }
-function saveGuideAsCalibration(){
-  var w=guideWidthSvg();                              /* 현재 테두리 폭(svg 단위) */
-  var wpxAtRef=w*GUIDE_REF_W/300;                      /* 기준폭(384px) 프레임에서의 카드 폭(px) */
-  CAL.f=wpxAtRef*GUIDE_TARGET_MM/CARD_WIDTH_MM;        /* 그 폭이 정확히 200mm라고 가정하고 역산 */
-  CAL.D=null; guideScale=1;
-  try{localStorage.setItem("lmDotCalV2",JSON.stringify({f:CAL.f,D:null}));}catch(e){}
-  renderCardGuide();
-  toast("저장했습니다 — 이제 이 크기가 정확히 20cm 기준입니다.");
+function setDevice(id){
+  CAL.dev=id; CAL.scale=1; saveCal(); renderCardGuide(); renderDistUI();
+}
+function saveCal(){
+  try{localStorage.setItem("lmDotCalV3",JSON.stringify({dev:CAL.dev,scale:CAL.scale}));}catch(e){}
 }
 
 
@@ -1179,6 +1195,7 @@ async function startCam(){
     S.samples=[]; S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false;
     S.last=null; S.bad=0; setReferenceUI(); renderLive();
     AUTO=false; lastD=200; distSource="default"; renderDistUI();
+    renderCardGuide();
     setBanner("먼저 안경 없이 ‘기준 잡기’를 눌러 주세요","warn");
     clearInterval(S.timer);
     S.timer=setInterval(tick,320);
@@ -1503,9 +1520,20 @@ function demo(){
 $("eyeR").addEventListener("click",function(){setEye("R");});
 $("eyeL").addEventListener("click",function(){setEye("L");});
 $("refBtn").addEventListener("click",startReference);
-$("gCardMinus").addEventListener("click",function(){nudgeGuide(1/1.06);});
-$("gCardPlus").addEventListener("click",function(){nudgeGuide(1.06);});
-$("gCardSave").addEventListener("click",saveGuideAsCalibration);
+$("gCardMinus").addEventListener("click",function(){nudgeGuide(1/1.05);});
+$("gCardPlus").addEventListener("click",function(){nudgeGuide(1.05);});
+$("gCardReset").addEventListener("click",function(){
+  CAL.scale=1; saveCal(); renderCardGuide(); toast("가이드 크기를 기종 기본값으로 되돌렸습니다.");
+});
+(function(){
+  var sel=$("devSel");
+  DEVICES.forEach(function(d){
+    var o=document.createElement("option");
+    o.value=d.id; o.textContent=d.name; sel.appendChild(o);
+  });
+  sel.value=CAL.dev||"";
+  sel.addEventListener("change",function(){setDevice(sel.value);});
+})();
 $("saveBtn").addEventListener("click",function(){saveEye(false);});
 $("resetBtn").addEventListener("click",function(){
   resetAutoSequence();
@@ -1527,7 +1555,8 @@ $("helpBtn").addEventListener("click",function(){$("help").classList.remove("hid
 $("helpClose").addEventListener("click",function(){$("help").classList.add("hidden");});
 $("help").addEventListener("click",function(e){if(e.target===$("help"))$("help").classList.add("hidden");});
 window.addEventListener("resize",function(){
-  if(!$("tgtView").classList.contains("hidden")) drawTarget();});
+  if(!$("tgtView").classList.contains("hidden")) drawTarget();
+  renderCardGuide();});
 
 syncGeom(); renderResults(); renderEyeTabs(); setReferenceUI(); renderLive(); renderCardGuide();
 if(TARGET_ONLY){
