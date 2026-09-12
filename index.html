@@ -19,6 +19,8 @@
   button{-webkit-tap-highlight-color:transparent}
   .wrap{width:min(560px,100%);margin:0 auto;
     padding:max(14px,env(safe-area-inset-top)) 14px max(28px,env(safe-area-inset-bottom))}
+  body.flipped{transform:rotate(180deg);transform-origin:center center}
+  #flipBtn.on{background:linear-gradient(135deg,#2f7fe0,#1fa6d8);color:#fff;border-color:transparent}
 
   header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
   header h1{margin:0;font-size:1.15rem;letter-spacing:-.03em}
@@ -160,6 +162,7 @@
       <h1>Lens Meter</h1>
       <p>책·인쇄물의 글자 변형으로 안경 도수를 추정합니다</p>
     </div>
+    <button id="flipBtn" class="ibtn" type="button" aria-label="폰 뒤집어서 사용">⟲</button>
     <button id="helpBtn" class="ibtn" type="button" aria-label="사용법">?</button>
   </header>
 
@@ -228,14 +231,9 @@
       <select id="devSel" style="width:auto;max-width:210px;padding:9px 10px;
         border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--ink)"></select>
     </div>
-    <div class="row" style="margin-top:4px;grid-template-columns:1fr 44px 44px">
-      <button id="gCardReset" class="btn" type="button">가이드 크기 초기화</button>
-      <button id="gCardMinus" class="btn" type="button">−</button>
-      <button id="gCardPlus" class="btn" type="button">+</button>
-    </div>
     <p class="hint">기종을 고르면 노란 테두리가 <b>20cm에서 신용카드가 보이는 크기</b>로
-      그려집니다. 실물 카드를 테두리에 맞추면 그 거리가 20cm입니다. 테두리가 실제
-      카드와 미묘하게 다르면 −/+로 미세조정하세요(자동 저장).</p>
+      그려집니다. 실물 카드를 그 테두리에 맞을 때까지 휴대폰을 움직이면, 그 위치가
+      카메라↔책 20cm입니다.</p>
 
     <div class="live">
       <div class="cell"><span>SPH</span><strong id="lSph">—</strong></div>
@@ -289,6 +287,13 @@
         <li>카메라가 자동으로 켜지면 <b>안경을 두지 않은 상태</b>로 ‘기준 잡기’를 누릅니다.</li>
         <li>기준이 완료되면 휴대폰과 책을 움직이지 말고, 안경을 정확히 중간인 <b>카메라에서 100mm</b> 위치에 수평으로 둡니다.</li>
       </ol>
+      <h3>폰을 뒤집어서 쓰기</h3>
+      <p>안경을 책 앞 받침 위에 놓고 찍을 때, 폰을 세운 채로는 안경이 화면 아래로
+      벗어나기 쉽습니다. 헤더의 ⟲ 버튼을 누르면 화면 전체가 180도 돌아가므로,
+      <b>휴대폰 자체를 위아래로 뒤집어 들어도</b> 화면 글씨와 영상은 그대로
+      똑바로 보입니다. 카메라 렌즈 위치만 반대쪽으로 바뀌는 셈이라, 안경이
+      프레임에 더 잘 들어오는 각도를 찾을 때 유용합니다. 원본 촬영 데이터에는
+      영향이 없어 도수 계산은 평소와 동일합니다.</p>
       <h3>측정</h3>
       <ol>
         <li>우안/좌안을 선택합니다.</li>
@@ -302,10 +307,9 @@
       책 옆에 놓고 이 테두리와 크기가 같아지도록 휴대폰을 위아래로 움직이면,
       그 위치가 카메라↔책 20cm입니다. 자를 쓸 필요가 없습니다.</p>
       <p>기종별 초점거리는 제조사 공개 사양을 근거로 한 근삿값이고, 브라우저가
-      실제로 잡는 화각이 조금 다를 수 있습니다. 테두리가 실물 카드와 미묘하게
-      안 맞으면 −/+로 미세조정하면 자동 저장되고, ‘가이드 크기 초기화’로 기종
-      기본값으로 되돌릴 수 있습니다. 기기가 초점 센서를 지원하면 그 값이 우선
-      사용되며, 기준을 잡은 뒤에는 배경 배율 변화로 거리를 계속 추적합니다.</p>
+      실제로 잡는 화각이 조금 다를 수 있어 약간의 오차가 남을 수 있습니다.
+      기기가 초점 센서를 지원하면 그 값이 우선 사용되며, 기준을 잡은 뒤에는
+      배경 배율 변화로 거리를 계속 추적합니다.</p>
       <h3>정확도를 올리려면</h3>
       <ul>
         <li><b>거리를 정확히</b> — 가장 큰 오차원입니다. 자동 인식이 실패해 기본값
@@ -410,7 +414,7 @@ function addAutoSample(vec,skew){
    (lastD = CAL.D / scale, analyzeFrame 참고). */
 var CAL=(function(){
   try{ var v=JSON.parse(localStorage.getItem("lmDotCalV3")||"null");
-       return v||{dev:"",scale:1}; }catch(e){ return {dev:"",scale:1}; }
+       return v||{dev:""}; }catch(e){ return {dev:""}; }
 })();
 var CARD_WIDTH_MM=85.60;        // ISO/IEC 7810 ID-1 표준 카드(신용카드 등) 폭
 var CARD_ASPECT=1.586;          // 카드 가로:세로 비율
@@ -483,7 +487,7 @@ function guideWidthSvg(){
   var fPx=fEq*Math.hypot(vw,vh)/FRAME35_DIAG_MM;      /* 비디오 픽셀 단위 초점거리 */
   var cardVideoPx=fPx*CARD_WIDTH_MM/GUIDE_TARGET_MM;  /* 200mm에서의 카드 폭(비디오 px) */
   var cover=Math.max(sw/vw,sh/vh);                    /* object-fit:cover 배율 */
-  return cardVideoPx*cover*(300/sw)*(CAL.scale||1);   /* svg viewBox(300폭) 단위 */
+  return cardVideoPx*cover*(300/sw);                  /* svg viewBox(300폭) 단위 */
 }
 function renderCardGuide(){
   var w=guideWidthSvg(), h=w/CARD_ASPECT;
@@ -497,15 +501,11 @@ function renderCardGuide(){
   }
   if(lb) lb.setAttribute("y",Math.max(14,y-8));
 }
-function nudgeGuide(mult){
-  CAL.scale=Math.max(.4,Math.min(2.5,(CAL.scale||1)*mult));
-  saveCal(); renderCardGuide();
-}
 function setDevice(id){
-  CAL.dev=id; CAL.scale=1; saveCal(); renderCardGuide(); renderDistUI();
+  CAL.dev=id; saveCal(); renderCardGuide(); renderDistUI();
 }
 function saveCal(){
-  try{localStorage.setItem("lmDotCalV3",JSON.stringify({dev:CAL.dev,scale:CAL.scale}));}catch(e){}
+  try{localStorage.setItem("lmDotCalV3",JSON.stringify({dev:CAL.dev}));}catch(e){}
 }
 
 
@@ -1520,11 +1520,6 @@ function demo(){
 $("eyeR").addEventListener("click",function(){setEye("R");});
 $("eyeL").addEventListener("click",function(){setEye("L");});
 $("refBtn").addEventListener("click",startReference);
-$("gCardMinus").addEventListener("click",function(){nudgeGuide(1/1.05);});
-$("gCardPlus").addEventListener("click",function(){nudgeGuide(1.05);});
-$("gCardReset").addEventListener("click",function(){
-  CAL.scale=1; saveCal(); renderCardGuide(); toast("가이드 크기를 기종 기본값으로 되돌렸습니다.");
-});
 (function(){
   var sel=$("devSel");
   DEVICES.forEach(function(d){
@@ -1551,6 +1546,21 @@ $("tgtFs").addEventListener("click",async function(){
        setTimeout(drawTarget,120);
   }catch(e){toast("전체화면을 사용할 수 없습니다.");}
 });
+(function(){
+  var on=false;
+  try{ on=localStorage.getItem("lmFlipped")==="1"; }catch(e){}
+  function apply(){
+    document.body.classList.toggle("flipped",on);
+    $("flipBtn").classList.toggle("on",on);
+  }
+  apply();
+  $("flipBtn").addEventListener("click",function(){
+    on=!on;
+    try{localStorage.setItem("lmFlipped",on?"1":"0");}catch(e){}
+    apply();
+    toast(on?"화면을 180도 돌렸습니다 — 폰을 뒤집어서 잡으세요.":"원래 방향으로 되돌렸습니다.");
+  });
+})();
 $("helpBtn").addEventListener("click",function(){$("help").classList.remove("hidden");});
 $("helpClose").addEventListener("click",function(){$("help").classList.add("hidden");});
 $("help").addEventListener("click",function(e){if(e.target===$("help"))$("help").classList.add("hidden");});
