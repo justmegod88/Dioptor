@@ -201,6 +201,11 @@
           <line x1="150" y1="181" x2="150" y2="189" stroke="#2fe0a8" stroke-width="1" opacity=".45"/>
           <text x="6" y="179" fill="#2fe0a8" font-size="8" font-weight="600"
                 font-family="-apple-system,sans-serif" opacity=".6">0°</text>
+          <!-- 카드 정렬 가이드: 실물 카드를 이 테두리에 맞추면 카메라↔책 거리가 200mm가 된다 -->
+          <rect id="gCard" x="0" y="0" width="0" height="0" rx="6" fill="none"
+                stroke="#ffb454" stroke-width="1.3" stroke-dasharray="5 6" opacity=".7"/>
+          <text id="gCardLabel" x="150" y="0" fill="#ffb454" font-size="9" text-anchor="middle"
+                font-family="-apple-system,sans-serif" opacity=".8">카드를 여기에 맞추면 20cm</text>
         </svg>
       </div>
       <div class="empty" id="empty">
@@ -218,9 +223,13 @@
       <button id="refBtn" class="btn" type="button" disabled>기준 잡기</button>
     </div>
     <p class="hint" id="distInfo"></p>
-    <div class="row one" style="margin-top:6px">
-      <button id="calBtn" class="btn" type="button">초점거리 보정(선택, 카드 정확도↑)</button>
+    <div class="row" style="margin-top:6px;grid-template-columns:44px 1fr 44px">
+      <button id="gCardMinus" class="btn" type="button">−</button>
+      <button id="gCardSave" class="btn" type="button">카드가 딱 맞으면: 20cm로 저장</button>
+      <button id="gCardPlus" class="btn" type="button">+</button>
     </div>
+    <p class="hint">실물 카드(신용카드 등)를 위 노란 점선 테두리에 딱 맞춰 놓고, 안 맞으면
+      −/+로 테두리 크기를 조절한 뒤 저장하세요. 그 상태가 정확히 20cm입니다.</p>
 
     <div class="live">
       <div class="cell"><span>SPH</span><strong id="lSph">—</strong></div>
@@ -281,18 +290,19 @@
         <li>초록 안내가 뜨도록 그대로 유지하면 안정된 측정 5회 후 <b>자동 저장</b>됩니다.</li>
         <li>반대쪽 눈으로 반복합니다.</li>
       </ol>
-      <h3>거리 자동 인식</h3>
-      <p>‘기준 잡기’를 누르는 순간 앱이 카메라↔책 거리를 자동으로 추정합니다.
-      ① 기기가 지원하면 카메라 초점 센서로, ② 지원하지 않으면 화면 어디에든
-      보이는 신용카드 등 표준 규격 카드를 폭으로 잡아 거리를 계산하고,
-      ③ 둘 다 실패하면 200mm를 기본값으로 가정합니다. 카드는 특정 위치에
-      맞출 필요 없이 화면에 뚜렷하게만 보이면 됩니다. 인식된 거리는
-      ‘초점거리 보정’ 버튼 위에 mm 단위와 인식 방식으로 표시됩니다.</p>
-      <p><b>카드 방식 정확도를 높이려면</b> — 카메라 화각을 기기별로 정확히 몰라
-      추정치를 쓰기 때문에 체계적인 오차가 남을 수 있습니다. 자로 잰 정확한
-      거리에 카드를 한 번 놓고 ‘초점거리 보정’을 누르면, 이 기기의 실제
-      초점거리를 계산해 저장하여 이후 카드 인식이 훨씬 정확해집니다. 기준을
-      잡은 뒤에는 휴대폰이 살짝 움직여도 배경 배율 변화로 거리를 계속 추적합니다.</p>
+      <h3>거리 맞추기 (카드 정렬 가이드)</h3>
+      <p>화면에 노란 점선 테두리가 보입니다. ① 기기가 카메라 초점 센서를
+      지원하면 거리를 자동으로 읽고, ② 아니면 <b>이 테두리가 정확히 200mm(20cm)
+      에서 신용카드가 보이는 크기</b>로 계산되어 있습니다. 실물 카드를 책 옆에
+      놓고 테두리와 크기를 맞추면 그 순간 카메라↔책 거리가 20cm라는 뜻입니다.
+      화면을 픽셀 단위로 분석해 카드를 자동으로 찾는 방식이 아니라, 사람이
+      눈으로 맞추는 방식이라 오탐지가 없습니다.</p>
+      <p><b>테두리가 실제 카드와 안 맞을 때</b> — 카메라 화각을 기기별로 정확히
+      몰라 기본 추정치로 그려지기 때문입니다. −/+ 버튼으로 테두리 크기를
+      조절해 실물 카드에 맞춘 뒤 ‘카드가 딱 맞으면: 20cm로 저장’을 누르면,
+      이 기기의 진짜 초점거리를 계산해 저장합니다. 그 다음부터는 테두리가
+      처음부터 정확한 크기로 나타납니다(1회만 하면 됩니다). 기준을 잡은
+      뒤에는 휴대폰이 살짝 움직여도 배경 배율 변화로 거리를 계속 추적합니다.</p>
       <h3>정확도를 올리려면</h3>
       <ul>
         <li><b>거리를 정확히</b> — 가장 큰 오차원입니다. 자동 인식이 실패해 기본값
@@ -390,19 +400,25 @@ function addAutoSample(vec,skew){
 }
 
 /* ---------- 광학 ---------- */
-/* 자동 거리: 기준 잡기 시점에 카메라↔책 실제 거리(mm)를 센서→카드→기본값(200mm) 순으로
-   추정해 CAL.D에 저장한다. 그 이후에는 렌즈 밖 배경의 배율 변화(scale)로 거리 변화를
-   계속 추적한다: lastD = CAL.D / scale (analyzeFrame 참고). */
+/* 거리: 기기가 지원하면 센서(focusDistance)로 자동 인식하고, 아니면 항상 200mm로
+   가정한다. 그 가정이 실제로 맞도록, 화면에 '카드 정렬 가이드' 테두리를 그려서
+   실물 카드(신용카드 등, 85.6mm 폭)를 거기에 맞추면 카메라↔책 거리가 정확히
+   200mm가 되게 한다. 기준을 잡은 이후에는 배경 배율 변화로 거리 변화를 추적한다
+   (lastD = CAL.D / scale, analyzeFrame 참고). */
 var CAL=(function(){
   try{ var v=JSON.parse(localStorage.getItem("lmDotCalV2")||"null");
        return (v&&v.f)?v:{f:null,D:null}; }catch(e){ return {f:null,D:null}; }
 })();
 var CARD_WIDTH_MM=85.60;        // ISO/IEC 7810 ID-1 표준 카드(신용카드 등) 폭
+var CARD_ASPECT=1.586;          // 카드 가로:세로 비율
+var GUIDE_TARGET_MM=200;        // 가이드 테두리가 나타내는 목표 거리
 var DIST_MIN_MM=120, DIST_MAX_MM=600;
 var ASSUMED_HFOV_DEG=66;        // 초점거리 실측 보정이 없을 때 쓰는 후면 카메라 대략 화각
+var GUIDE_REF_W=384;            // CAL.f를 표현하는 기준 프레임 폭(px)
+var guideScale=1;               // 사용자가 −/+로 미세 조정하는 가이드 배율
 var AUTO=false;
 var lastD=200;
-var distSource="default";       // "sensor" | "card" | "default"
+var distSource="default";       // "sensor" | "default"
 var TARGET_ONLY=new URLSearchParams(location.search).get("target")==="1";
 
 function totalDistance(){
@@ -414,11 +430,12 @@ function geom(){
 }
 function syncGeom(){ renderDistUI(); }
 
-/* 후면 카메라의 대략적인 초점거리(px). 실측 보정값(CAL.f)이 있으면 그것을 우선한다. */
-function estimateFocalPx(W){
+/* 후면 카메라의 대략적인 초점거리(px), 기준 프레임 폭 GUIDE_REF_W 기준.
+   실측 보정값(CAL.f)이 있으면 그것을 우선한다. */
+function focalPxAtRefWidth(){
   if(CAL.f) return CAL.f;
   var hfov=ASSUMED_HFOV_DEG*Math.PI/180;
-  return (W/2)/Math.tan(hfov/2);
+  return (GUIDE_REF_W/2)/Math.tan(hfov/2);
 }
 
 /* 카메라 API의 focusDistance(지원 기기에서만) 로 절대 거리를 읽어본다.
@@ -435,102 +452,51 @@ function readSensorDistanceMM(){
   }catch(e){ return null; }
 }
 
-/* 화면 어디에 카드가 있어도 찾는다: 가로·세로 방향으로 '오랫동안 이어지는'
-   명암 경계(=변의 후보)를 각각 찾고, 그 조합 중 표준 카드 비율(1.586:1)에
-   맞는 사각형을 고른다. 정확한 위치에 맞출 필요가 없다. */
-function detectCardRectPx(gray,W,H){
-  var y0=Math.round(H*.06), y1=Math.round(H*.97);
-  var x0=Math.round(W*.04), x1=Math.round(W*.97);
-  var gh=new Float32Array(W), gv=new Float32Array(H);
-  var y,x;
-  for(y=y0+2;y<y1-2;y++){
-    var row=y*W;
-    for(x=x0+2;x<x1-2;x++){
-      if(Math.abs(gray[row+x+2]-gray[row+x-2])>26) gh[x]+=1;
-    }
-  }
-  for(x=x0+2;x<x1-2;x++){
-    for(y=y0+2;y<y1-2;y++){
-      if(Math.abs(gray[(y+2)*W+x]-gray[(y-2)*W+x])>26) gv[y]+=1;
-    }
-  }
-  function peaks(arr,lo,hi,minGap,minScore){
-    var cand=[],i;
-    for(i=lo+2;i<hi-2;i++){
-      if(arr[i]<minScore) continue;
-      var isPeak=true;
-      for(var d=-2;d<=2;d++) if(arr[i+d]>arr[i]){isPeak=false;break;}
-      if(isPeak) cand.push({i:i,v:arr[i]});
-    }
-    cand.sort(function(a,b){return b.v-a.v;});
-    var out=[];
-    for(i=0;i<cand.length&&out.length<6;i++){
-      if(out.every(function(o){return Math.abs(o.i-cand[i].i)>minGap;})) out.push(cand[i]);
-    }
-    return out;
-  }
-  var cols=peaks(gh,x0,x1,Math.round(W*.05),(y1-y0)*.22);
-  var rows=peaks(gv,y0,y1,Math.round(H*.05),(x1-x0)*.22);
-  if(cols.length<2||rows.length<2) return null;
-  var best=null,a,b,c,d;
-  for(a=0;a<cols.length;a++)for(b=a+1;b<cols.length;b++){
-    var left=Math.min(cols[a].i,cols[b].i), right=Math.max(cols[a].i,cols[b].i);
-    var wpx=right-left; if(wpx<W*.08||wpx>W*.92) continue;
-    for(c=0;c<rows.length;c++)for(d=c+1;d<rows.length;d++){
-      var top=Math.min(rows[c].i,rows[d].i), bot=Math.max(rows[c].i,rows[d].i);
-      var hpx=bot-top; if(hpx<H*.05||hpx>H*.92) continue;
-      var longSide=Math.max(wpx,hpx), shortSide=Math.min(wpx,hpx);
-      var ratio=longSide/shortSide;
-      if(Math.abs(ratio-1.586)>.20) continue;                 /* ISO/IEC 7810 ID-1 비율 */
-      var score=cols[a].v+cols[b].v+rows[c].v+rows[d].v;
-      if(!best||score>best.score) best={longPx:longSide,score:score};
-    }
-  }
-  return best?best.longPx:null;
-}
-
-/* 기준 잡기 시점의 절대 거리(mm)를 정한다: 센서 → 카드 → 기본값(200mm) 순. */
-function determineDistanceMM(gray,W,H){
+/* 거리를 정한다: 센서 → (사용자가 카드를 가이드에 맞춘) 기본값 200mm 순. */
+function determineDistanceMM(){
   var sensorMM=readSensorDistanceMM();
   if(sensorMM) return {mm:sensorMM,src:"sensor"};
-  var wpx=detectCardRectPx(gray,W,H);
-  if(wpx){
-    var f=estimateFocalPx(W);
-    var mm=f*CARD_WIDTH_MM/wpx;
-    if(mm>=DIST_MIN_MM&&mm<=DIST_MAX_MM) return {mm:mm,src:"card"};
-  }
-  return {mm:200,src:"default"};
+  return {mm:GUIDE_TARGET_MM,src:"default"};
 }
 
-/* ---------- 초점거리 1회 보정 ----------
-   화각 추정(ASSUMED_HFOV_DEG)은 기기마다 오차가 커서, 카드 거리만으로는
-   체계적으로 틀릴 수 있다. 실제 거리를 자로 한 번 재서 입력하면 그 기기의
-   진짜 초점거리(px)를 역산해 localStorage에 저장하고, 이후엔 그 값을 쓴다. */
-function calibrateFocal(){
-  if(!S.stream){toast("먼저 카메라를 켜 주세요.");return;}
-  var v=$("vid"); if(!v.videoWidth){toast("카메라가 아직 준비되지 않았습니다.");return;}
-  var W=384,H=Math.round(W*v.videoHeight/v.videoWidth);
-  var cv=$("work"); cv.width=W; cv.height=H;
-  var ctx=cv.getContext("2d",{willReadFrequently:true});
-  ctx.drawImage(v,0,0,W,H);
-  var gray=rgbaToGray(ctx.getImageData(0,0,W,H).data,W,H);
-  var wpx=detectCardRectPx(gray,W,H);
-  if(!wpx){toast("카드를 화면에 뚜렷하게 비춘 뒤 다시 시도하세요.");return;}
-  var input=window.prompt("지금 카드까지 실제 거리(mm)를 자로 재서 입력하세요. 예: 100","100");
-  if(input==null) return;
-  var mm=parseFloat(input);
-  if(!isFinite(mm)||mm<DIST_MIN_MM||mm>DIST_MAX_MM){toast("거리 값이 올바르지 않습니다.");return;}
-  CAL.f=wpx*mm/CARD_WIDTH_MM; CAL.D=null;
+/* ---------- 카드 정렬 가이드 ----------
+   화면에 200mm 거리에서의 카드 겉보기 크기를 계산해 테두리로 그린다.
+   실물 카드를 거기에 맞추면(필요시 −/+로 미세조정) 거리가 200mm임이 보장된다.
+   '저장'을 누르면 그 순간의 테두리 크기를 기준으로 이 기기의 진짜 초점거리를
+   역산해 localStorage에 저장하므로, 다음부터는 가이드가 처음부터 정확하다. */
+function guideWidthSvg(){
+  var f=focalPxAtRefWidth();
+  var wpxAtRef=f*CARD_WIDTH_MM/GUIDE_TARGET_MM;      /* 기준폭(384px) 프레임에서의 카드 폭 */
+  return 300*(wpxAtRef/GUIDE_REF_W)*guideScale;       /* svg viewBox(300폭) 단위로 환산 */
+}
+function renderCardGuide(){
+  var w=guideWidthSvg(), h=w/CARD_ASPECT;
+  var cx=150, cy=372, x=cx-w/2, y=cy-h/2;
+  var r=$("gCard"); if(r){
+    r.setAttribute("x",x);r.setAttribute("y",y);
+    r.setAttribute("width",Math.max(2,w));r.setAttribute("height",Math.max(2,h));
+  }
+  var lb=$("gCardLabel"); if(lb) lb.setAttribute("y",Math.max(14,y-8));
+}
+function nudgeGuide(mult){
+  guideScale=Math.max(.5,Math.min(2,guideScale*mult));
+  renderCardGuide();
+}
+function saveGuideAsCalibration(){
+  var w=guideWidthSvg();                              /* 현재 테두리 폭(svg 단위) */
+  var wpxAtRef=w*GUIDE_REF_W/300;                      /* 기준폭(384px) 프레임에서의 카드 폭(px) */
+  CAL.f=wpxAtRef*GUIDE_TARGET_MM/CARD_WIDTH_MM;        /* 그 폭이 정확히 200mm라고 가정하고 역산 */
+  CAL.D=null; guideScale=1;
   try{localStorage.setItem("lmDotCalV2",JSON.stringify({f:CAL.f,D:null}));}catch(e){}
-  toast("초점거리 보정 완료 — 이제 카드 거리 인식이 더 정확해집니다.");
+  renderCardGuide();
+  toast("저장했습니다 — 이제 이 크기가 정확히 20cm 기준입니다.");
 }
 
 
 function renderDistUI(){
   var el=$("distInfo"); if(!el) return;
   if(!S.reference){ el.textContent=""; return; }
-  var label=distSource==="sensor"?"센서로 자동 인식됨":
-             distSource==="card"?"카드로 자동 인식됨":"인식 실패 — 200mm로 가정";
+  var label=distSource==="sensor"?"센서로 자동 인식됨":"200mm 가정 (카드를 가이드에 맞췄다면 정확)";
   el.textContent="측정 거리 약 "+Math.round(lastD)+"mm ("+label+")";
 }
 
@@ -1144,17 +1110,16 @@ function finishReference(){
                invA:[1,0,0,1],outPitchPx:1};
   S.motion=null;
 
-  /* 절대 거리 추정: 센서 → 카드 → 기본값(200mm) 순으로 시도.
+  /* 거리: 센서 → 기본값(200mm, 카드 정렬 가이드로 보장) 순으로 정한다.
      이후에는 배경 배율 변화로 거리 변화를 계속 추적한다(analyzeFrame의 scale 참고). */
-  var dist=determineDistanceMM(avg,W,H);
+  var dist=determineDistanceMM();
   lastD=dist.mm; distSource=dist.src; CAL.D=dist.mm; AUTO=true;
   renderDistUI();
 
   S.samples=[]; S.noLens=0; setReferenceUI(); renderLive(false);
   setBanner("기준 완료 — 안경렌즈를 원 안에 넣으세요","ok");
   var distMsg=distSource==="sensor"?"카메라 센서로 거리 "+Math.round(lastD)+"mm 인식":
-              distSource==="card"?"카드로 거리 "+Math.round(lastD)+"mm 인식":
-              "거리 자동 인식 실패 — 기본값 200mm로 가정합니다 (카드를 화면 아래쪽에 두면 인식돼요)";
+              "200mm로 가정합니다 (카드를 노란 가이드 테두리에 맞췄다면 정확해요)";
   toast("무안경 책 배경 기준이 저장되었습니다. "+distMsg);
 }
 
@@ -1538,7 +1503,9 @@ function demo(){
 $("eyeR").addEventListener("click",function(){setEye("R");});
 $("eyeL").addEventListener("click",function(){setEye("L");});
 $("refBtn").addEventListener("click",startReference);
-$("calBtn").addEventListener("click",calibrateFocal);
+$("gCardMinus").addEventListener("click",function(){nudgeGuide(1/1.06);});
+$("gCardPlus").addEventListener("click",function(){nudgeGuide(1.06);});
+$("gCardSave").addEventListener("click",saveGuideAsCalibration);
 $("saveBtn").addEventListener("click",function(){saveEye(false);});
 $("resetBtn").addEventListener("click",function(){
   resetAutoSequence();
@@ -1562,7 +1529,7 @@ $("help").addEventListener("click",function(e){if(e.target===$("help"))$("help")
 window.addEventListener("resize",function(){
   if(!$("tgtView").classList.contains("hidden")) drawTarget();});
 
-syncGeom(); renderResults(); renderEyeTabs(); setReferenceUI(); renderLive();
+syncGeom(); renderResults(); renderEyeTabs(); setReferenceUI(); renderLive(); renderCardGuide();
 if(TARGET_ONLY){
   document.querySelector(".wrap").classList.add("hidden");
   openTarget();
