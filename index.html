@@ -163,7 +163,8 @@
     <button id="helpBtn" class="ibtn" type="button" aria-label="사용법">?</button>
   </header>
 
-  <!-- 측정 조건은 카메라↔책 200mm, 렌즈 위치 50%(각 100mm)로 고정 -->
+  <!-- 카메라↔책 거리는 '기준 잡기' 시점에 센서/카드로 자동 추정(실패 시 200mm 가정),
+       렌즈 위치는 항상 중간 50%로 둔다 -->
   <div class="card target-card">
     <div class="row one" style="margin-top:0">
       <button id="tgtBtn" class="btn" type="button">타깃 전송</button>
@@ -200,6 +201,11 @@
           <line x1="150" y1="181" x2="150" y2="189" stroke="#2fe0a8" stroke-width="1" opacity=".45"/>
           <text x="6" y="179" fill="#2fe0a8" font-size="8" font-weight="600"
                 font-family="-apple-system,sans-serif" opacity=".6">0°</text>
+          <!-- 신용카드(선택) 안내: 여기 두면 거리(mm)를 자동으로 인식합니다 -->
+          <rect x="45" y="330" width="210" height="52" rx="7" fill="none"
+                stroke="#ffb454" stroke-width="1.2" stroke-dasharray="5 6" opacity=".55"/>
+          <text x="150" y="358" fill="#ffb454" font-size="9" text-anchor="middle"
+                font-family="-apple-system,sans-serif" opacity=".75">카드(선택) — 두면 거리 자동 인식</text>
         </svg>
       </div>
       <div class="empty" id="empty">
@@ -216,6 +222,7 @@
       </div>
       <button id="refBtn" class="btn" type="button" disabled>기준 잡기</button>
     </div>
+    <p class="hint" id="distInfo"></p>
 
     <div class="live">
       <div class="cell"><span>SPH</span><strong id="lSph">—</strong></div>
@@ -276,10 +283,17 @@
         <li>초록 안내가 뜨도록 그대로 유지하면 안정된 측정 5회 후 <b>자동 저장</b>됩니다.</li>
         <li>반대쪽 눈으로 반복합니다.</li>
       </ol>
+      <h3>거리 자동 인식</h3>
+      <p>‘기준 잡기’를 누르는 순간 앱이 카메라↔책 거리를 자동으로 추정합니다.
+      ① 기기가 지원하면 카메라 초점 센서로, ② 지원하지 않으면 신용카드 등
+      표준 규격 카드를 화면 아래쪽 점선 상자에 함께 두면 카드 폭으로,
+      ③ 둘 다 실패하면 200mm를 기본값으로 가정합니다. 인식된 거리는 화면의
+      ‘유효 스캔’ 옆에 mm 단위와 인식 방식으로 표시됩니다. 기준을 잡은 뒤에는
+      휴대폰이 살짝 움직여도 배경 배율 변화로 거리를 계속 추적합니다.</p>
       <h3>정확도를 올리려면</h3>
       <ul>
-        <li><b>거리를 정확히</b> — 가장 큰 오차원입니다. 기본 측정 거리는 200mm이며
-            고정 높이 거치대로 ±5mm 안에 맞추는 것을 권장합니다.</li>
+        <li><b>거리를 정확히</b> — 가장 큰 오차원입니다. 자동 인식이 실패해 기본값
+            200mm로 가정된 경우, 고정 높이 거치대로 ±5mm 안에 맞추는 것을 권장합니다.</li>
         <li><b>안경테를 초록 수평선에 맞추세요</b> — AXIS는 이 선을 0°로 잡습니다. 테가 기울면 그만큼 축이 틀립니다.</li>
         <li>휴대폰을 책 표면과 <b>평행</b>하게. 많이 기울면 프레임을 자동으로 버립니다.</li>
         <li>렌즈 반사광을 피하고, 파란 원의 안쪽과 바깥쪽 모두에 작은 글자가 보여야 합니다.</li>
@@ -373,22 +387,100 @@ function addAutoSample(vec,skew){
 }
 
 /* ---------- 광학 ---------- */
-/* 자동 거리 보정값: 기준 촬영 당시의 실제 카메라↔타깃 거리(mm) */
+/* 자동 거리: 기준 잡기 시점에 카메라↔책 실제 거리(mm)를 센서→카드→기본값(200mm) 순으로
+   추정해 CAL.D에 저장한다. 그 이후에는 렌즈 밖 배경의 배율 변화(scale)로 거리 변화를
+   계속 추적한다: lastD = CAL.D / scale (analyzeFrame 참고). */
 var CAL=(function(){
   try{ var v=JSON.parse(localStorage.getItem("lmDotCalV2")||"null");
-       return (v&&v.D)?v:{D:null}; }catch(e){ return {D:null}; }
+       return (v&&v.f)?v:{f:null,D:null}; }catch(e){ return {f:null,D:null}; }
 })();
+var CARD_WIDTH_MM=85.60;        // ISO/IEC 7810 ID-1 표준 카드(신용카드 등) 폭
+var DIST_MIN_MM=120, DIST_MAX_MM=600;
+var ASSUMED_HFOV_DEG=66;        // 초점거리 실측 보정이 없을 때 쓰는 후면 카메라 대략 화각
 var AUTO=false;
 var lastD=200;
+var distSource="default";       // "sensor" | "card" | "default"
 var TARGET_ONLY=new URLSearchParams(location.search).get("target")==="1";
 
 function totalDistance(){
-  return 200;
+  return lastD;
 }
 function geom(){
-  return {a:100,b:100,e:50,eM:.05};
+  var D=lastD, a=D/2, b=D/2, e=a*b/(a+b);
+  return {a:a,b:b,e:e,eM:e/1000};
 }
-function syncGeom(){}
+function syncGeom(){ renderDistUI(); }
+
+/* 후면 카메라의 대략적인 초점거리(px). 실측 보정값(CAL.f)이 있으면 그것을 우선한다. */
+function estimateFocalPx(W){
+  if(CAL.f) return CAL.f;
+  var hfov=ASSUMED_HFOV_DEG*Math.PI/180;
+  return (W/2)/Math.tan(hfov/2);
+}
+
+/* 카메라 API의 focusDistance(지원 기기에서만) 로 절대 거리를 읽어본다.
+   대부분의 아이폰 사파리·다수 기기는 지원하지 않으므로, 실패하면 조용히 null. */
+function readSensorDistanceMM(){
+  try{
+    var track=S.focusTrack;
+    if(!track||!track.getSettings) return null;
+    var s=track.getSettings();
+    if(typeof s.focusDistance!=="number"||!isFinite(s.focusDistance)||s.focusDistance<=0) return null;
+    var mm=s.focusDistance*1000;                 /* 스펙 단위: 미터 */
+    if(mm<DIST_MIN_MM||mm>DIST_MAX_MM) return null;
+    return mm;
+  }catch(e){ return null; }
+}
+
+/* 화면 하단(가이드의 '카드' 영역)에서 카드 폭(px)을 찾는다.
+   여러 행에서 좌우로 가장 뚜렷한 명암 경계 두 개를 찾아 중앙값 폭을 취한다. */
+function detectCardWidthPx(gray,W,H){
+  var y0=Math.round(H*.80), y1=Math.round(H*.92);
+  var x0=Math.round(W*.15), x1=Math.round(W*.85);
+  var widths=[];
+  for(var y=y0;y<=y1;y+=2){
+    var row=y*W, edges=[];
+    for(var x=x0+2;x<x1-2;x++){
+      var g=Math.abs(gray[row+x+2]-gray[row+x-2]);
+      if(g>28) edges.push({x:x,g:g});
+    }
+    if(edges.length<2) continue;
+    edges.sort(function(a,b){return b.g-a.g;});
+    var left=null,right=null;
+    for(var i=0;i<edges.length&&(!left||!right);i++){
+      var e=edges[i];
+      if(!left){left=e;continue;}
+      if(Math.abs(e.x-left.x)>W*.12){right=e;}
+    }
+    if(left&&right){
+      var wpx=Math.abs(right.x-left.x);
+      if(wpx>W*.12&&wpx<W*.75) widths.push(wpx);
+    }
+  }
+  if(widths.length<3) return null;
+  return median(widths);
+}
+
+/* 기준 잡기 시점의 절대 거리(mm)를 정한다: 센서 → 카드 → 기본값(200mm) 순. */
+function determineDistanceMM(gray,W,H){
+  var sensorMM=readSensorDistanceMM();
+  if(sensorMM) return {mm:sensorMM,src:"sensor"};
+  var wpx=detectCardWidthPx(gray,W,H);
+  if(wpx){
+    var f=estimateFocalPx(W);
+    var mm=f*CARD_WIDTH_MM/wpx;
+    if(mm>=DIST_MIN_MM&&mm<=DIST_MAX_MM) return {mm:mm,src:"card"};
+  }
+  return {mm:200,src:"default"};
+}
+
+function renderDistUI(){
+  var el=$("distInfo"); if(!el) return;
+  if(!S.reference){ el.textContent=""; return; }
+  var label=distSource==="sensor"?"센서로 자동 인식됨":
+             distSource==="card"?"카드로 자동 인식됨":"인식 실패 — 200mm로 가정";
+  el.textContent="측정 거리 약 "+Math.round(lastD)+"mm ("+label+")";
+}
 
 function normAxis(d){var v=d%180; if(v<0)v+=180; return v;}
 function rxToVec(s,c,ax){var a=ax*Math.PI/180;
@@ -920,7 +1012,7 @@ analyzeFrame=function(imgData,W,H){
   if(dot>.55)return {ok:false,why:"tilt",message:"기울기 "+Math.round(dot*100)+
     "% — 작은 흔들림은 보정했지만 휴대폰을 조금 더 수평으로 해주세요"};
   if(scale<.78||scale>1.28)return {ok:false,why:"moved"};
-  if(AUTO&&CAL.D){lastD=CAL.D/scale;if(lastD<120||lastD>2000)return {ok:false,why:"badDist"};}
+  if(AUTO&&CAL.D){lastD=CAL.D/scale;if(lastD<DIST_MIN_MM||lastD>DIST_MAX_MM)return {ok:false,why:"badDist"};}
   var ccx=W*.5,ccy=H*.5,mx=C.A[0]*ccx+C.A[1]*ccy+C.t[0]-ccx,
       my=C.A[2]*ccx+C.A[3]*ccy+C.t[1]-ccy;
   return {ok:true,A:L,score:Math.min(C.n,inside.n),skew:skew,
@@ -999,10 +1091,19 @@ function finishReference(){
                sharpOut:edgeSharpness(avg,W,H,false),
                invA:[1,0,0,1],outPitchPx:1};
   S.motion=null;
-  lastD=200;
+
+  /* 절대 거리 추정: 센서 → 카드 → 기본값(200mm) 순으로 시도.
+     이후에는 배경 배율 변화로 거리 변화를 계속 추적한다(analyzeFrame의 scale 참고). */
+  var dist=determineDistanceMM(avg,W,H);
+  lastD=dist.mm; distSource=dist.src; CAL.D=dist.mm; AUTO=true;
+  renderDistUI();
+
   S.samples=[]; S.noLens=0; setReferenceUI(); renderLive(false);
   setBanner("기준 완료 — 안경렌즈를 원 안에 넣으세요","ok");
-  toast("무안경 책 배경 기준이 저장되었습니다.");
+  var distMsg=distSource==="sensor"?"카메라 센서로 거리 "+Math.round(lastD)+"mm 인식":
+              distSource==="card"?"카드로 거리 "+Math.round(lastD)+"mm 인식":
+              "거리 자동 인식 실패 — 기본값 200mm로 가정합니다 (카드를 화면 아래쪽에 두면 인식돼요)";
+  toast("무안경 책 배경 기준이 저장되었습니다. "+distMsg);
 }
 
 /* ---------- 카메라 자동초점 ---------- */
@@ -1060,6 +1161,7 @@ async function startCam(){
     resetAutoSequence();
     S.samples=[]; S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false;
     S.last=null; S.bad=0; setReferenceUI(); renderLive();
+    AUTO=false; lastD=200; distSource="default"; renderDistUI();
     setBanner("먼저 안경 없이 ‘기준 잡기’를 눌러 주세요","warn");
     clearInterval(S.timer);
     S.timer=setInterval(tick,320);
@@ -1076,6 +1178,8 @@ function stopCam(){
   $("empty").classList.remove("hidden");
   S.focusTrack=null;S.focusModes=[];S.focusBusy=false;
   S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false; S.last=null;
+  AUTO=false; lastD=200; distSource="default";
+  var di=$("distInfo"); if(di) di.textContent="";
   setReferenceUI();
 }
 
