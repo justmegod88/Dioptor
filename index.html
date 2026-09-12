@@ -163,7 +163,7 @@
       <h1>Lens Meter</h1>
       <p>책·인쇄물의 글자 변형으로 안경 도수를 추정합니다</p>
     </div>
-    <button id="flipBtn" class="ibtn" type="button" aria-label="폰 뒤집어서 사용">⟲</button>
+    <button id="flipBtn" class="ibtn" type="button" aria-label="자동 회전 감지 켜기">⟲</button>
     <button id="helpBtn" class="ibtn" type="button" aria-label="사용법">?</button>
   </header>
 
@@ -290,11 +290,12 @@
       </ol>
       <h3>폰을 뒤집어서 쓰기</h3>
       <p>안경을 책 앞 받침 위에 놓고 찍을 때, 폰을 세운 채로는 안경이 화면 아래로
-      벗어나기 쉽습니다. 헤더의 ⟲ 버튼을 누르면 화면 전체가 180도 돌아가므로,
-      <b>휴대폰 자체를 위아래로 뒤집어 들어도</b> 화면 글씨와 영상은 그대로
-      똑바로 보입니다. 카메라 렌즈 위치만 반대쪽으로 바뀌는 셈이라, 안경이
-      프레임에 더 잘 들어오는 각도를 찾을 때 유용합니다. 원본 촬영 데이터에는
-      영향이 없어 도수 계산은 평소와 동일합니다.</p>
+      벗어나기 쉽습니다. 헤더의 ⟲ 버튼을 <b>한 번만 누르면</b> 동작 센서 권한을
+      요청하고, 그 뒤로는 <b>휴대폰을 실제로 뒤집을 때마다 화면이 자동으로
+      180도 전환</b>됩니다 — 버튼을 매번 누를 필요가 없습니다. 화면 글씨와
+      버튼만 뒤집히고 카메라 영상은 그대로 나오며(원래도 자체 보정되어
+      있음), 도수 계산에는 영향이 없습니다. 센서 권한을 지원하지 않는
+      기기에서는 버튼이 수동 전환으로 동작합니다.</p>
       <h3>측정</h3>
       <ol>
         <li>우안/좌안을 선택합니다.</li>
@@ -303,10 +304,12 @@
         <li>반대쪽 눈으로 반복합니다.</li>
       </ol>
       <h3>거리 맞추기 (카드 정렬 가이드)</h3>
-      <p><b>먼저 ‘내 휴대폰 기종’을 한 번 선택하세요.</b> 그러면 화면의 노란 점선
-      테두리가 <b>20cm 거리에서 신용카드가 보이는 크기</b>로 그려집니다. 실물 카드를
-      책 옆에 놓고 이 테두리와 크기가 같아지도록 휴대폰을 위아래로 움직이면,
-      그 위치가 카메라↔책 20cm입니다. 자를 쓸 필요가 없습니다.</p>
+      <p><b>먼저 ‘내 휴대폰 기종’을 한 번 선택하세요.</b> 그러면 화면 중앙의
+      점선 원 안에, <b>20cm 거리에서 신용카드가 보이는 크기</b>의 노란 사각형
+      테두리가 함께 그려집니다. 실물 카드를 그 원 안에서 테두리 크기에
+      맞도록 휴대폰을 움직이면, 그 위치가 카메라↔책 20cm입니다. 자를 쓸
+      필요가 없습니다. 이후 안경을 측정할 때도 같은 원에 렌즈를 넣으면
+      되므로, 카드로 거리를 맞춘 자리에 안경을 그대로 놓아도 됩니다.</p>
       <p>기종별 초점거리는 제조사 공개 사양을 근거로 한 근삿값이고, 브라우저가
       실제로 잡는 화각이 조금 다를 수 있어 약간의 오차가 남을 수 있습니다.
       기기가 초점 센서를 지원하면 그 값이 우선 사용되며, 기준을 잡은 뒤에는
@@ -495,7 +498,7 @@ function renderCardGuide(){
   var r=$("gCard"), lb=$("gCardLabel");
   if(!w){ if(r) r.setAttribute("width",0); if(lb) lb.setAttribute("opacity",0); return; }
   if(lb) lb.setAttribute("opacity",".8");
-  var cx=150, cy=350, x=cx-w/2, y=cy-h/2;
+  var cx=150, cy=185, x=cx-w/2, y=cy-h/2;      /* gCircle과 동일한 중심 — 카드와 안경을 같은 자리에 맞춘다 */
   if(r){
     r.setAttribute("x",x);r.setAttribute("y",y);
     r.setAttribute("width",Math.max(2,w));r.setAttribute("height",Math.max(2,h));
@@ -1548,18 +1551,38 @@ $("tgtFs").addEventListener("click",async function(){
   }catch(e){toast("전체화면을 사용할 수 없습니다.");}
 });
 (function(){
-  var on=false;
-  try{ on=localStorage.getItem("lmFlipped")==="1"; }catch(e){}
-  function apply(){
+  var sensorOn=false;
+  function applyFlip(on){
     document.body.classList.toggle("flipped",on);
     $("flipBtn").classList.toggle("on",on);
   }
-  apply();
+  function motionHandler(e){
+    var g=e.accelerationIncludingGravity;
+    if(!g||g.y==null) return;
+    applyFlip(g.y>4);            /* 폰 윗부분이 아래를 향하면(뒤집힘) g.y가 양수가 된다 */
+  }
+  function bindSensor(){
+    window.addEventListener("devicemotion",motionHandler);
+    sensorOn=true;
+    $("flipBtn").textContent="⟲✓";
+    $("flipBtn").setAttribute("aria-label","자동 회전 감지 켜짐");
+    toast("자동 감지 켜짐 — 이제 폰을 뒤집으면 화면이 자동으로 바뀝니다.");
+  }
+  function manualToggle(){
+    applyFlip(!document.body.classList.contains("flipped"));
+  }
   $("flipBtn").addEventListener("click",function(){
-    on=!on;
-    try{localStorage.setItem("lmFlipped",on?"1":"0");}catch(e){}
-    apply();
-    toast(on?"화면을 180도 돌렸습니다 — 폰을 뒤집어서 잡으세요.":"원래 방향으로 되돌렸습니다.");
+    if(sensorOn){ manualToggle(); return; }              /* 센서 켠 뒤엔 수동 임시 반전만 허용 */
+    if(typeof DeviceMotionEvent!=="undefined"&&typeof DeviceMotionEvent.requestPermission==="function"){
+      DeviceMotionEvent.requestPermission().then(function(r){
+        if(r==="granted") bindSensor();
+        else toast("동작 센서 권한이 필요합니다. 설정에서 허용한 뒤 다시 눌러주세요.");
+      }).catch(function(){ toast("센서를 쓸 수 없어 수동 버튼으로 동작합니다."); manualToggle(); });
+    }else if(typeof DeviceMotionEvent!=="undefined"){
+      bindSensor();
+    }else{
+      manualToggle();
+    }
   });
 })();
 $("helpBtn").addEventListener("click",function(){$("help").classList.remove("hidden");});
