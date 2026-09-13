@@ -145,6 +145,25 @@
   .modal .mb ol,.modal .mb ul{margin:0;padding-left:18px}
   .modal .mb li{margin-bottom:6px}
 
+  /* 온보딩 튜토리얼 */
+  .tut .mb{padding:0 16px 16px}
+  .tutstep{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+  .tutstep:last-of-type{border-bottom:0}
+  .tutnum{flex:0 0 26px;height:26px;border-radius:50%;display:grid;place-items:center;
+    background:#7fd8ff;color:#04121c;font-weight:850;font-size:.78rem}
+  .tutbody{flex:1;min-width:0}
+  .tutbody b{display:block;color:var(--ink);font-size:.88rem;margin-bottom:3px}
+  .tutbody span{display:block;color:#cfdcec;font-size:.8rem;line-height:1.5}
+  .tutfig{margin-top:9px;border-radius:11px;border:1px solid var(--line);
+    background:rgba(255,255,255,.03);padding:9px}
+  .tutfig svg{display:block;width:100%;height:auto}
+  .tutflip{margin-top:12px;padding:11px 13px;border-radius:13px;
+    border:1px solid rgba(127,216,255,.25);background:rgba(127,216,255,.07);
+    color:#bfe9ff;font-size:.79rem;line-height:1.5}
+  .tutfoot{position:sticky;bottom:0;display:flex;gap:8px;padding:12px 16px;
+    border-top:1px solid var(--line);background:var(--panel)}
+  .tutfoot .btn{flex:1}
+
   .toast{position:fixed;left:50%;bottom:26px;z-index:90;transform:translate(-50%,14px);
     max-width:calc(100% - 30px);padding:10px 14px;border-radius:12px;
     background:rgba(8,14,24,.95);border:1px solid var(--line);
@@ -229,7 +248,8 @@
         border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--ink)"></select>
     </div>
     <p class="hint">기종을 고르면 노란 테두리가 <b>20cm에서 신용카드가 보이는 크기</b>로
-      그려집니다. 실물 카드를 그 테두리에 맞을 때까지 휴대폰을 움직이면, 그 위치가
+      그려집니다. 실물 카드를 <b>책 표지에 붙여 놓고</b> 테두리와 같은 크기로 보일
+      때까지 휴대폰을 앞뒤로 움직이면, 그 위치가
       카메라↔책 20cm입니다.</p>
 
     <div class="live">
@@ -273,10 +293,123 @@
 </div>
 
 <!-- 도움말 -->
+<div id="tut" class="ov hidden">
+  <div class="modal tut">
+    <div class="mh"><h2>측정 순서</h2><button id="tutX" class="ibtn" type="button">✕</button></div>
+    <div class="mb">
+
+      <div class="tutstep">
+        <div class="tutnum">1</div>
+        <div class="tutbody">
+          <b>기종 선택</b>
+          <span>아래에서 내 휴대폰 기종을 한 번 고릅니다. 화면의 노란 테두리가
+            20cm 거리에서 신용카드가 보이는 크기로 그려집니다.</span>
+        </div>
+      </div>
+
+      <div class="tutstep">
+        <div class="tutnum">2</div>
+        <div class="tutbody">
+          <b>책에 카드를 붙이고 거리 맞추기</b>
+          <span>글자가 빽빽한 책을 세워 둡니다. 실물 카드를
+            <b style="display:inline">책 표지에 붙여 놓고</b>, 화면의 노란 테두리와
+            카드 크기가 같아지도록 휴대폰을 앞뒤로 움직이세요.
+            그 위치가 <b style="display:inline">카메라↔책 20cm</b>입니다.
+            거리를 맞춘 뒤 카드는 떼어 냅니다.</span>
+          <div class="tutfig">
+            <svg viewBox="0 0 300 74" xmlns="http://www.w3.org/2000/svg">
+              <rect x="14" y="12" width="9" height="50" rx="2" fill="none" stroke="#7fd8ff" stroke-width="1.6"/>
+              <text x="18" y="70" fill="#7fd8ff" font-size="7" text-anchor="middle" font-family="sans-serif">폰</text>
+              <rect x="252" y="6" width="22" height="60" rx="2" fill="none" stroke="#cfdcec" stroke-width="1.6"/>
+              <text x="263" y="72" fill="#cfdcec" font-size="7" text-anchor="middle" font-family="sans-serif">책</text>
+              <rect x="245" y="27" width="7" height="18" rx="1.5" fill="none" stroke="#ffb454" stroke-width="1.6"/>
+              <text x="222" y="20" fill="#ffb454" font-size="7" text-anchor="middle" font-family="sans-serif">카드(표지에 부착)</text>
+              <line x1="248" y1="26" x2="234" y2="20" stroke="#ffb454" stroke-width="1"/>
+              <line x1="26" y1="37" x2="242" y2="37" stroke="#3a4a60" stroke-width="1" stroke-dasharray="4 4"/>
+              <text x="128" y="33" fill="#9fb2c8" font-size="7.5" text-anchor="middle" font-family="sans-serif">20cm</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="tutstep">
+        <div class="tutnum">3</div>
+        <div class="tutbody">
+          <b>안경 없이 ‘기준 잡기’</b>
+          <span>카드와 안경을 모두 치운 뒤 ‘기준 잡기’를 누릅니다.
+            휴대폰과 책은 이때부터 움직이지 마세요.</span>
+        </div>
+      </div>
+
+      <div class="tutstep">
+        <div class="tutnum">4</div>
+        <div class="tutbody">
+          <b>안경을 정확히 가운데에</b>
+          <span>안경을 카메라와 책의 <b style="display:inline">정확히 중간(10cm)</b>에 둡니다.
+            다리는 접어서 옆으로 두면 자리 잡기 쉽습니다. 렌즈면이 책과
+            나란해지도록(찌그러져 보이지 않게) 각도를 맞추세요.</span>
+          <div class="tutfig">
+            <svg viewBox="0 0 300 62" xmlns="http://www.w3.org/2000/svg">
+              <rect x="14" y="8" width="9" height="46" rx="2" fill="none" stroke="#7fd8ff" stroke-width="1.6"/>
+              <ellipse cx="150" cy="31" rx="9" ry="15" fill="none" stroke="#2fe0a8" stroke-width="1.6"/>
+              <text x="150" y="58" fill="#2fe0a8" font-size="7" text-anchor="middle" font-family="sans-serif">안경</text>
+              <rect x="264" y="4" width="22" height="54" rx="2" fill="none" stroke="#cfdcec" stroke-width="1.6"/>
+              <line x1="26" y1="31" x2="139" y2="31" stroke="#3a4a60" stroke-width="1" stroke-dasharray="4 4"/>
+              <line x1="161" y1="31" x2="260" y2="31" stroke="#3a4a60" stroke-width="1" stroke-dasharray="4 4"/>
+              <text x="82" y="24" fill="#9fb2c8" font-size="7.5" text-anchor="middle" font-family="sans-serif">10cm</text>
+              <text x="211" y="24" fill="#9fb2c8" font-size="7.5" text-anchor="middle" font-family="sans-serif">10cm</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="tutstep">
+        <div class="tutnum">5</div>
+        <div class="tutbody">
+          <b>화면이 시키는 렌즈를 원에 맞추기</b>
+          <span>안내에 따라 <b style="display:inline">화면 오른쪽 렌즈 → 화면 왼쪽 렌즈</b> 순으로
+            점선 원에 맞춥니다. 초록 안내가 뜨면 그대로 유지만 하세요. 자동으로 저장됩니다.</span>
+        </div>
+      </div>
+
+      <div class="tutstep">
+        <div class="tutnum">6</div>
+        <div class="tutbody">
+          <b>안경을 앞뒤로 뒤집어 한 번 더</b>
+          <span>안내가 뜨면 안경을 <b style="display:inline">앞뒤로 뒤집어</b> 같은 자리에 놓고,
+            다시 화면 오른쪽 → 왼쪽 순으로 측정합니다.</span>
+          <div class="tutflip">안경은 렌즈면이 원래 조금 기울어지게 만들어져 있어서,
+            그대로만 재면 실제로 없는 난시가 섞일 수 있습니다. 뒤집어서 한 번 더 재
+            평균을 내면 그 기울기 오차가 상당 부분 상쇄됩니다. 두 값의 차이는
+            결과의 <b style="display:inline">신뢰도</b>로 표시됩니다.</div>
+        </div>
+      </div>
+
+      <div class="tutstep">
+        <div class="tutnum">7</div>
+        <div class="tutbody">
+          <b>결과 확인</b>
+          <span>네 번의 측정이 끝나면 좌·우 도수와 신뢰도가 함께 표시됩니다.
+            신뢰도가 낮게 나오면 안경 각도와 중간 위치를 다시 맞추고 재측정하세요.</span>
+        </div>
+      </div>
+
+      <p class="hint" style="margin-top:14px">이 앱은 참고용 추정 도구이며 안경원의 렌즈미터를 대체하지 않습니다.</p>
+    </div>
+    <div class="tutfoot">
+      <button id="tutSkip" class="btn" type="button">건너뛰기</button>
+      <button id="tutGo" class="btn go" type="button">시작하기</button>
+    </div>
+  </div>
+</div>
+
 <div id="help" class="ov hidden">
   <div class="modal">
     <div class="mh"><h2>사용법</h2><button id="helpClose" class="ibtn" type="button">✕</button></div>
     <div class="mb">
+      <div class="row one" style="margin-top:0">
+        <button id="tutOpen" class="btn" type="button">측정 순서 다시 보기</button>
+      </div>
       <h3>준비</h3>
       <ol>
         <li>작은 글자가 많은 책·신문·무광 인쇄물을 <b>평평하게</b> 놓고 화면 전체에 글자가 보이게 합니다.</li>
@@ -322,9 +455,10 @@
       신용카드가 보이는 크기</b>의 노란 사각형 테두리가 그려집니다. 폰을 세워서
       드는 기본 자세에서는 이 테두리가 렌즈 원 아래쪽에 따로 나타나고, 폰을
       뒤집은 상태(눕혀 찍기)에서는 카드와 안경이 같은 자리에 놓이므로
-      <b>렌즈를 맞추는 원 안에 겹쳐서</b> 나타납니다. 실물 카드를 테두리
-      크기에 맞도록 휴대폰을 움직이면, 그 위치가 카메라↔책 20cm입니다.
-      자를 쓸 필요가 없습니다.</p>
+      <b>렌즈를 맞추는 원 안에 겹쳐서</b> 나타납니다. 실물 카드를 <b>책 표지에
+      붙여 놓고</b> 테두리와 같은 크기로 보일 때까지 휴대폰을 앞뒤로 움직이면,
+      그 위치가 카메라↔책 20cm입니다. 카드는 반드시 책과 같은 면에 있어야
+      하며, 거리를 맞춘 뒤에는 떼어 냅니다. 자를 쓸 필요가 없습니다.</p>
       <p>기종별 초점거리는 제조사 공개 사양을 근거로 한 근삿값이고, 브라우저가
       실제로 잡는 화각이 조금 다를 수 있어 약간의 오차가 남을 수 있습니다.
       기기가 초점 센서를 지원하면 그 값이 우선 사용되며, 기준을 잡은 뒤에는
@@ -1689,6 +1823,23 @@ $("tgtFs").addEventListener("click",async function(){
 })();
 $("helpBtn").addEventListener("click",function(){$("help").classList.remove("hidden");});
 $("helpClose").addEventListener("click",function(){$("help").classList.add("hidden");});
+(function(){
+  function closeTut(){
+    $("tut").classList.add("hidden");
+    try{localStorage.setItem("lmTutSeen","1");}catch(e){}
+  }
+  $("tutX").addEventListener("click",closeTut);
+  $("tutSkip").addEventListener("click",closeTut);
+  $("tutGo").addEventListener("click",closeTut);
+  $("tut").addEventListener("click",function(e){if(e.target===$("tut"))closeTut();});
+  $("tutOpen").addEventListener("click",function(){
+    $("help").classList.add("hidden");
+    $("tut").classList.remove("hidden");
+  });
+  var seen=false;
+  try{ seen=localStorage.getItem("lmTutSeen")==="1"; }catch(e){}
+  if(!seen&&!TARGET_ONLY) $("tut").classList.remove("hidden");
+})();
 $("help").addEventListener("click",function(e){if(e.target===$("help"))$("help").classList.add("hidden");});
 window.addEventListener("resize",function(){
   if(!$("tgtView").classList.contains("hidden")) drawTarget();
