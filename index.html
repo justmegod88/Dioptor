@@ -755,13 +755,18 @@ function principal(A){
 /* 배율 행렬을 실제 도수 벡터로 변환한다.
    무안경 기준 행렬을 제거한 뒤에만 호출해야 카메라 왜곡이 도수로 섞이지 않는다. */
 function matrixToMeasurement(A){
-  A=applyLensTiltCorrection(A);
-  var pr=principal(A);
-  if(pr.m1<.35||pr.m1>2.6||pr.m2<.35||pr.m2>2.6)
+  var prRaw=principal(A);
+  if(prRaw.m1<.35||prRaw.m1>2.6||prRaw.m2<.35||prRaw.m2>2.6)
     return {ok:false,why:"range"};
 
   var g=geom();
   if(g.eM<.03) return {ok:false,why:"tooClose"};
+
+  /* 보정 전 원본 신호로 먼저 판단한다: 렌즈가 없을 때(=원본 신호가 이미 잡음 수준)
+     기울기 보정이 그 잡음을 증폭시켜 가짜 렌즈로 오인하는 일이 없도록 막는다. */
+  var rawSignal=Math.max(Math.abs((1-1/prRaw.m1)/g.eM),Math.abs((1-1/prRaw.m2)/g.eM));
+  var A2=(rawSignal>=MIN_LENS_POWER)?applyLensTiltCorrection(A):A;
+  var pr=principal(A2);
   var F1=(1-1/pr.m1)/g.eM;
   var F2=(1-1/pr.m2)/g.eM;
 
@@ -779,14 +784,17 @@ function matrixToMeasurement(A){
    때문에 실제로 없는 원주(난시)가 섞여 들어온다. 렌즈 앞면에 폰을 대서 잰 기울기
    (lensTiltRef)와, 촬영 중 실시간 기울기(liveBeta/liveGamma)의 '차이'만큼 압축된
    방향을 역으로 늘려 상쇄한다. 두 축(앞뒤 tilt=세로 압축, 좌우 tilt=가로 압축)을
-   독립 근사로 다뤄 코사인 역보정을 적용하는 근사식이며, 완벽한 광학 모델은 아니다. */
+   독립 근사로 다뤄 코사인 역보정을 적용하는 근사식이며, 완벽한 광학 모델은 아니다.
+   보정 폭은 최대 ~15%로 강하게 제한한다 — 잡음 증폭으로 인한 오탐을 막기 위함이며,
+   기울기 차이가 비정상적으로 크면(재보정 필요 가능성) 아예 보정을 걸지 않는다. */
 var lensTiltRef=null, liveBeta=null, liveGamma=null;
 function applyLensTiltCorrection(A){
   if(!lensTiltRef||liveBeta==null||liveGamma==null) return A;
   var dBeta=(liveBeta-lensTiltRef.beta)*Math.PI/180;
   var dGamma=(liveGamma-lensTiltRef.gamma)*Math.PI/180;
-  var kx=1/Math.max(.5,Math.cos(dGamma));   /* 좌우 기울기 차 → 가로 압축 보정 */
-  var ky=1/Math.max(.5,Math.cos(dBeta));    /* 앞뒤 기울기 차 → 세로 압축 보정 */
+  if(Math.abs(dBeta)>25*Math.PI/180||Math.abs(dGamma)>25*Math.PI/180) return A; /* 재보정 필요, 적용 안 함 */
+  var kx=1/Math.max(.87,Math.cos(dGamma));   /* 좌우 기울기 차 → 가로 압축 보정, 최대 약 1.15배 */
+  var ky=1/Math.max(.87,Math.cos(dBeta));    /* 앞뒤 기울기 차 → 세로 압축 보정, 최대 약 1.15배 */
   return [A[0]*kx,A[1]*kx,A[2]*ky,A[3]*ky];
 }
 
