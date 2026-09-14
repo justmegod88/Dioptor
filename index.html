@@ -164,6 +164,10 @@
     border-top:1px solid var(--line);background:var(--panel)}
   .tutfoot .btn{flex:1}
 
+  .conf-ok{color:#a9ffe4}
+  .conf-warn{color:#ffd6a2}
+  .conf-bad{color:#ffb0b8}
+
   .toast{position:fixed;left:50%;bottom:26px;z-index:90;transform:translate(-50%,14px);
     max-width:calc(100% - 30px);padding:10px 14px;border-radius:12px;
     background:rgba(8,14,24,.95);border:1px solid var(--line);
@@ -237,11 +241,6 @@
       <button id="refBtn" class="btn" type="button" disabled>기준 잡기</button>
     </div>
     <p class="hint" id="distInfo"></p>
-    <p class="hint" id="levelInfo"></p>
-    <div class="row one" style="margin-top:6px">
-      <button id="tiltBtn" class="btn" type="button">렌즈 기울기 재기 (폰을 렌즈 앞면에 대고)</button>
-    </div>
-    <p class="hint" id="tiltInfo">렌즈 기울기: 재지 않음 — 경사각 보정 없이 측정됩니다</p>
     <div class="fieldrow" style="margin-top:8px">
       <label for="devSel">내 휴대폰 기종</label>
       <select id="devSel" style="width:auto;max-width:210px;padding:9px 10px;
@@ -262,7 +261,7 @@
 
     <div class="row">
       <button id="resetBtn" class="btn" type="button">스캔 초기화</button>
-      <button id="saveBtn" class="btn go" type="button" disabled>이 눈 저장 (수동)</button>
+      <button id="saveBtn" class="btn go" type="button" disabled>이 렌즈 저장 (수동)</button>
     </div>
   </div>
 
@@ -279,6 +278,7 @@
           <td id="rL_a" class="pending">—</td><td id="rL_e" class="pending">—</td></tr>
       </tbody>
     </table>
+    <p class="hint" id="confInfo"></p>
     <div class="disc"><span>⚠</span><span>대략적 추정값입니다. 렌즈미터·검안을 대신할 수 없고 처방·판매에 사용할 수 없습니다.</span></div>
   </div>
 </div>
@@ -499,9 +499,11 @@ var $=function(id){return document.getElementById(id);};
 
 /* ---------- 상태 ---------- */
 var S={
-  stream:null, timer:null, eye:"R",
+  stream:null, timer:null, side:"R", pass:1,
   samples:[],            // {M,J0,J45,score}
   results:{R:null,L:null},
+  passData:{1:{R:null,L:null},2:{R:null,L:null}},
+  merged:{R:null,L:null},
   reference:null,        // 무안경 랜덤 점 기준 영상과 추적점
   motion:null,           // 직전 프레임의 짐벌 보정 affine
   focusTrack:null,
@@ -896,11 +898,7 @@ function matrixToMeasurement(A){
   var g=geom();
   if(g.eM<.03) return {ok:false,why:"tooClose"};
 
-  /* 보정 전 원본 신호로 먼저 판단한다: 렌즈가 없을 때(=원본 신호가 이미 잡음 수준)
-     기울기 보정이 그 잡음을 증폭시켜 가짜 렌즈로 오인하는 일이 없도록 막는다. */
-  var rawSignal=Math.max(Math.abs((1-1/prRaw.m1)/g.eM),Math.abs((1-1/prRaw.m2)/g.eM));
-  var A2=(rawSignal>=MIN_LENS_POWER)?applyLensTiltCorrection(A):A;
-  var pr=principal(A2);
+  var pr=prRaw;
   var F1=(1-1/pr.m1)/g.eM;
   var F2=(1-1/pr.m2)/g.eM;
 
@@ -913,24 +911,6 @@ function matrixToMeasurement(A){
           signal:Math.max(Math.abs(F1),Math.abs(F2))};
 }
 
-/* ---------- 렌즈 기울기(경사각) 보정 ----------
-   안경을 눕혀 놓았을 때 렌즈면이 카메라와 평행하지 않으면, 원근 압축(foreshortening)
-   때문에 실제로 없는 원주(난시)가 섞여 들어온다. 렌즈 앞면에 폰을 대서 잰 기울기
-   (lensTiltRef)와, 촬영 중 실시간 기울기(liveBeta/liveGamma)의 '차이'만큼 압축된
-   방향을 역으로 늘려 상쇄한다. 두 축(앞뒤 tilt=세로 압축, 좌우 tilt=가로 압축)을
-   독립 근사로 다뤄 코사인 역보정을 적용하는 근사식이며, 완벽한 광학 모델은 아니다.
-   보정 폭은 최대 ~15%로 강하게 제한한다 — 잡음 증폭으로 인한 오탐을 막기 위함이며,
-   기울기 차이가 비정상적으로 크면(재보정 필요 가능성) 아예 보정을 걸지 않는다. */
-var lensTiltRef=null, liveBeta=null, liveGamma=null;
-function applyLensTiltCorrection(A){
-  if(!lensTiltRef||liveBeta==null||liveGamma==null) return A;
-  var dBeta=(liveBeta-lensTiltRef.beta)*Math.PI/180;
-  var dGamma=(liveGamma-lensTiltRef.gamma)*Math.PI/180;
-  if(Math.abs(dBeta)>25*Math.PI/180||Math.abs(dGamma)>25*Math.PI/180) return A; /* 재보정 필요, 적용 안 함 */
-  var kx=1/Math.max(.87,Math.cos(dGamma));   /* 좌우 기울기 차 → 가로 압축 보정, 최대 약 1.15배 */
-  var ky=1/Math.max(.87,Math.cos(dBeta));    /* 앞뒤 기울기 차 → 세로 압축 보정, 최대 약 1.15배 */
-  return [A[0]*kx,A[1]*kx,A[2]*ky,A[3]*ky];
-}
 
 /* ---------- 한 프레임 분석 ---------- */
 function analyzeFrame(imgData,W,H){
@@ -1474,7 +1454,7 @@ function tick(){
     S.noLens=0;
     if(Date.now()<S.autoSaveCooldownUntil){
       resetAutoSequence(); S.samples=[]; renderLive(false);
-      setBanner("반대쪽 렌즈를 원 안에 맞춰 주세요","ok");
+      setBanner("다음 렌즈를 원 안에 맞춰 주세요","ok");
       return;
     }
     measured.vec._skew=r.skew;
@@ -1563,7 +1543,7 @@ function renderLive(gotOne){
     cancelAutoSave();
     if(n>=5&&agg.spread<.45){
       if(Date.now()<S.autoSaveCooldownUntil)
-        setBanner("반대쪽 렌즈를 원 안에 맞춰 주세요","ok");
+        setBanner("다음 렌즈를 원 안에 맞춰 주세요","ok");
       else setBanner("안정됨 — 자동 저장 확인 중 "+auto.count+"/5"+tiltMsg,"ok");
     }else if(gotOne){
       setBanner("자동 저장 확인 중 "+auto.count+"/5 — 그대로 유지"+tiltMsg,"warn");
@@ -1572,24 +1552,63 @@ function renderLive(gotOne){
 }
 
 /* ---------- 저장/결과 ---------- */
+/* ---------- 2회(뒤집기) 측정 ----------
+   안경은 렌즈면이 다리에 대해 조금 기울어지게(경사각) 만들어져 있어, 한 자세로만
+   재면 그 기울기가 만든 원근 왜곡이 '없는 난시'로 섞여 들어온다. 안경을 앞뒤로
+   뒤집으면 그 기울기가 반대 방향이 되므로, 두 번의 측정을 평균하면 왜곡 성분이
+   상당 부분 상쇄된다. 두 값의 차이는 그대로 왜곡의 크기이므로 신뢰도로 표시한다.
+
+   화면 좌우와 실제 눈의 대응: 1차는 안경 앞면이 카메라를 향하므로 화면 오른쪽이
+   우안, 2차는 뒤집혀 있으므로 화면 오른쪽이 좌안이 된다. 사용자에게는 '화면
+   오른쪽/왼쪽'으로만 안내하고 눈 배정은 앱이 처리한다. */
+function eyeForSide(side,pass){
+  return pass===1 ? side : (side==="R"?"L":"R");
+}
+function mergePasses(eye){
+  var a=S.passData[1][eye], b=S.passData[2][eye];
+  if(!a||!b) return null;
+  var avg={M:(a.M+b.M)/2, J0:(a.J0+b.J0)/2, J45:(a.J45+b.J45)/2};
+  /* 두 측정의 J 벡터 차이 절반 = 기울기가 만든 가짜 원주의 크기 추정 */
+  var artifact=Math.hypot(a.J0-b.J0,a.J45-b.J45);
+  var sphGap=Math.abs(a.M-b.M);
+  return {vec:avg,artifact:artifact,sphGap:sphGap};
+}
+function confidenceOf(m){
+  if(!m) return null;
+  var worst=Math.max(m.artifact,m.sphGap);
+  if(worst<.20) return {level:"높음",cls:"ok",note:"두 측정이 잘 일치합니다"};
+  if(worst<.50) return {level:"보통",cls:"warn",note:"약간의 기울기 오차가 있었습니다"};
+  return {level:"낮음",cls:"bad",note:"두 측정 차이가 큽니다 — 안경 각도와 중간 위치를 다시 맞춰 재측정하세요"};
+}
 function saveEye(automatic){
   automatic=automatic===true;
   var source=automatic?S.autoSamples.slice(-AUTO_SAVE_SAMPLES):S.samples;
   var agg=robustVec(source); if(!agg) return;
   resetAutoSequence();
-  var savedEye=S.eye;
-  S.results[S.eye]=vecToRx(agg.vec);
+
+  var side=S.side, pass=S.pass, eye=eyeForSide(side,pass);
+  S.passData[pass][eye]=agg.vec;
+
+  var merged=mergePasses(eye);
+  if(merged){ S.results[eye]=vecToRx(merged.vec); S.merged[eye]=merged; }
   renderResults(); renderEyeTabs();
-  toast((S.eye==="R"?"우안":"좌안")+(automatic?" 자동 저장됨 (":" 저장됨 (")+agg.n+"표본)");
   if(automatic&&navigator.vibrate) navigator.vibrate(80);
   S.autoSaveCooldownUntil=automatic?Date.now()+AUTO_SAVE_SWITCH_DELAY:0;
   S.samples=[]; renderLive();
-  /* 자동으로 반대쪽으로 */
-  if(!S.results[S.eye==="R"?"L":"R"]){
-    setEye(S.eye==="R"?"L":"R");
-    if(automatic) setBanner((savedEye==="R"?"우안":"좌안")+" 자동 저장 완료 — 반대쪽 렌즈를 맞춰 주세요","ok");
-  }else if(automatic){
-    setBanner("양안 자동 저장 완료","ok");
+
+  var doneLabel=(pass===1?"1차":"2차")+" · 화면 "+(side==="R"?"오른쪽":"왼쪽")+" 렌즈 저장됨";
+  toast(doneLabel+" ("+agg.n+"표본)");
+
+  /* 진행: 오른쪽 → 왼쪽 → (뒤집기) → 오른쪽 → 왼쪽 */
+  if(side==="R"){
+    S.side="L"; renderEyeTabs(); renderLive();
+    setBanner(doneLabel+" — 이제 화면 왼쪽 렌즈를 원에 맞춰 주세요","ok");
+  }else if(pass===1){
+    S.pass=2; S.side="R"; renderEyeTabs(); renderLive();
+    setBanner("1차 완료 — 안경을 앞뒤로 뒤집어 같은 자리에 놓고, 화면 오른쪽 렌즈부터 다시 맞춰 주세요","ok");
+    toast("안경을 앞뒤로 뒤집어 주세요. 같은 자리, 같은 높이에 놓습니다.");
+  }else{
+    setBanner("측정 완료 — 결과와 신뢰도를 확인하세요","ok");
   }
 }
 function renderResults(){
@@ -1604,24 +1623,39 @@ function renderResults(){
     cells[3].textContent=fmtP(q25(rx.sph+rx.cyl/2));
     cells.forEach(function(c){c.className="";});
   });
+  renderConfidence();
+}
+function renderConfidence(){
+  var el=$("confInfo"); if(!el) return;
+  var parts=[];
+  ["R","L"].forEach(function(e){
+    var c=confidenceOf(S.merged[e]);
+    if(c) parts.push((e==="R"?"우":"좌")+" 신뢰도 "+c.level);
+  });
+  if(!parts.length){ el.textContent=""; el.className="hint"; return; }
+  var worst=["R","L"].map(function(e){return confidenceOf(S.merged[e]);})
+    .filter(Boolean).sort(function(a,b){
+      var o={"높음":0,"보통":1,"낮음":2}; return o[b.level]-o[a.level];})[0];
+  el.textContent=parts.join(" · ")+" — "+worst.note;
+  el.className="hint conf-"+worst.cls;
 }
 function renderEyeTabs(){
   var el=$("eyeGuide");
   if(!el) return;
-  if(S.results.R&&S.results.L){
+  var done=S.results.R&&S.results.L&&S.pass===2&&S.passData[2].R&&S.passData[2].L;
+  if(done){
     el.classList.add("done");
-    el.innerHTML="측정 완료 ✓ 오른쪽·왼쪽 모두 저장됨";
-  }else{
-    el.classList.remove("done");
-    var isRight=S.eye==="R";
-    var label=isRight?"오른쪽 눈 (OD)":"왼쪽 눈 (OS)";
-    var already=isRight?S.results.R:S.results.L;
-    el.innerHTML="지금 측정 중: <b>"+label+"</b>"+(already?" (다시 측정)":"");
+    el.innerHTML="측정 완료 ✓ 좌·우 각각 2회씩 측정했습니다";
+    return;
   }
+  el.classList.remove("done");
+  var stage=S.pass===1?"1차":"2차 (뒤집은 상태)";
+  var where=S.side==="R"?"화면 오른쪽":"화면 왼쪽";
+  el.innerHTML=stage+" · <b>"+where+" 렌즈</b>를 원에 맞추세요";
 }
 function setEye(e){
   resetAutoSequence();
-  S.eye=e; S.samples=[];
+  S.side=e; S.samples=[];
   renderLive();
 }
 
@@ -1718,9 +1752,11 @@ $("saveBtn").addEventListener("click",function(){saveEye(false);});
 $("resetBtn").addEventListener("click",function(){
   resetAutoSequence();
   S.samples=[];S.results={R:null,L:null};S.autoSaveCooldownUntil=0;
+  S.passData={1:{R:null,L:null},2:{R:null,L:null}};S.merged={R:null,L:null};
+  S.pass=1;S.side="R";
   renderResults();renderEyeTabs();renderLive();
-  setBanner(S.reference?"저장 결과가 삭제되었습니다 — 다시 측정해 주세요":"초기화했습니다","warn");
-  toast("스캔과 우·좌안 저장 결과를 모두 삭제했습니다.");
+  setBanner(S.reference?"저장 결과가 삭제되었습니다 — 1차 화면 오른쪽 렌즈부터 다시":"초기화했습니다","warn");
+  toast("모든 측정 결과를 삭제했습니다. 1차부터 다시 시작합니다.");
 });
 $("stage").addEventListener("click",function(){if(!S.stream)startCam();});
 $("tgtBtn").addEventListener("click",shareTarget);
@@ -1744,38 +1780,12 @@ $("tgtFs").addEventListener("click",async function(){
     var on=g.y>4;
     if(document.body.classList.contains("flipped")!==on) applyFlip(on);
   }
-  function renderLevel(beta,gamma){
-    var el=$("levelInfo"); if(!el) return;
-    var tilt=Math.hypot(beta,gamma);
-    var msg, color;
-    if(tilt<3){msg="✓ 평평함 ("+tilt.toFixed(1)+"°) — 눕혀 찍기에 좋은 상태";color="#a9ffe4";}
-    else if(tilt<8){msg="△ 약간 기울어짐 ("+tilt.toFixed(1)+"°) — 가짜 난시가 섞일 수 있어요";color="#ffd6a2";}
-    else{msg="⚠ 많이 기울어짐 ("+tilt.toFixed(1)+"°) — 폰(또는 스탠드)을 평평하게";color="#ffb0b8";}
-    el.textContent="휴대폰 수평: "+msg;
-    el.style.color=color;
-  }
-  function orientHandler(e){
-    if(e.beta==null||e.gamma==null) return;
-    liveBeta=e.beta; liveGamma=e.gamma;
-    renderLevel(e.beta,e.gamma);
-  }
-  function bindOrientation(){
-    if(typeof DeviceOrientationEvent==="undefined") return;
-    if(typeof DeviceOrientationEvent.requestPermission==="function"){
-      DeviceOrientationEvent.requestPermission().then(function(r){
-        if(r==="granted") window.addEventListener("deviceorientation",orientHandler);
-      }).catch(function(){});
-    }else{
-      window.addEventListener("deviceorientation",orientHandler);
-    }
-  }
   function bindSensor(){
     window.addEventListener("devicemotion",motionHandler);
-    bindOrientation();
     sensorOn=true;
     $("flipBtn").textContent="⟲✓";
     $("flipBtn").setAttribute("aria-label","자동 회전 감지 켜짐");
-    toast("자동 감지 켜짐 — 폰을 뒤집으면 화면이 자동 전환되고, 수평 상태도 표시됩니다.");
+    toast("자동 감지 켜짐 — 폰을 뒤집으면 화면이 자동으로 전환됩니다.");
   }
   function manualToggle(){
     applyFlip(!document.body.classList.contains("flipped"));
@@ -1799,27 +1809,6 @@ $("tgtFs").addEventListener("click",async function(){
   if(typeof DeviceMotionEvent!=="undefined"&&typeof DeviceMotionEvent.requestPermission!=="function"){
     bindSensor();
   }
-  function captureLensTilt(){
-    if(liveBeta==null||liveGamma==null){
-      toast("센서 값을 아직 못 읽었습니다. 잠시 후 다시 누르거나 ⟲ 버튼으로 센서를 먼저 켜주세요.");
-      return;
-    }
-    lensTiltRef={beta:liveBeta,gamma:liveGamma};
-    $("tiltInfo").textContent="렌즈 기울기 저장됨 (β"+liveBeta.toFixed(1)+"° γ"+liveGamma.toFixed(1)+"°) — 경사각 보정 적용 중";
-    toast("렌즈 기울기를 저장했습니다. 이제 측정값에 경사각 보정이 적용됩니다.");
-  }
-  $("tiltBtn").addEventListener("click",function(){
-    if(typeof DeviceOrientationEvent!=="undefined"&&typeof DeviceOrientationEvent.requestPermission==="function"){
-      DeviceOrientationEvent.requestPermission().then(function(r){
-        if(r==="granted"){
-          if(!sensorOn) window.addEventListener("deviceorientation",orientHandler);
-          setTimeout(captureLensTilt,150);   /* 첫 이벤트가 들어올 시간을 준다 */
-        }else toast("동작 센서 권한이 필요합니다.");
-      }).catch(function(){ toast("센서를 사용할 수 없습니다."); });
-    }else{
-      captureLensTilt();
-    }
-  });
 })();
 $("helpBtn").addEventListener("click",function(){$("help").classList.remove("hidden");});
 $("helpClose").addEventListener("click",function(){$("help").classList.add("hidden");});
