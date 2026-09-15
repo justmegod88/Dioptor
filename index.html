@@ -366,22 +366,23 @@
       <div class="tutstep">
         <div class="tutnum">5</div>
         <div class="tutbody">
-          <b>화면이 시키는 렌즈를 원에 맞추기</b>
-          <span>안내에 따라 <b style="display:inline">화면 오른쪽 렌즈 → 화면 왼쪽 렌즈</b> 순으로
-            점선 원에 맞춥니다. 초록 안내가 뜨면 그대로 유지만 하세요. 자동으로 저장됩니다.</span>
+          <b>우안 렌즈 측정 (1회차)</b>
+          <span>안내에 따라 <b style="display:inline">우안 렌즈</b>를 점선 원에 맞춥니다.
+            초록 안내가 뜨면 그대로 유지만 하세요. 자동으로 저장되고 도수가 바로 표시됩니다.</span>
         </div>
       </div>
 
       <div class="tutstep">
         <div class="tutnum">6</div>
         <div class="tutbody">
-          <b>안경을 앞뒤로 뒤집어 한 번 더</b>
-          <span>안내가 뜨면 안경을 <b style="display:inline">앞뒤로 뒤집어</b> 같은 자리에 놓고,
-            다시 화면 오른쪽 → 왼쪽 순으로 측정합니다.</span>
-          <div class="tutflip">안경은 렌즈면이 원래 조금 기울어지게 만들어져 있어서,
-            그대로만 재면 실제로 없는 난시가 섞일 수 있습니다. 뒤집어서 한 번 더 재
-            평균을 내면 그 기울기 오차가 상당 부분 상쇄됩니다. 두 값의 차이는
-            결과의 <b style="display:inline">신뢰도</b>로 표시됩니다.</div>
+          <b>치웠다가 다시 놓고 한 번 더 (2회차)</b>
+          <span>같은 렌즈를 <b style="display:inline">안경을 완전히 치웠다가 다시 놓고</b>
+            한 번 더 측정합니다. 그다음 좌안도 같은 방식으로 2회 측정합니다.</span>
+          <div class="tutflip">같은 렌즈를 두 번 재서 값이 잘 맞는지 확인하는 과정입니다.
+            두 값이 비슷하면 안경을 제대로 놓았고 측정이 안정적이라는 뜻이라
+            <b style="display:inline">신뢰도 높음</b>으로, 많이 다르면
+            <b style="display:inline">신뢰도 낮음</b>으로 표시되어 재측정을 안내합니다.
+            최종 결과는 두 값의 평균입니다.</div>
         </div>
       </div>
 
@@ -504,6 +505,7 @@ var S={
   results:{R:null,L:null},
   passData:{1:{R:null,L:null},2:{R:null,L:null}},
   merged:{R:null,L:null},
+  awaitRemoval:false,
   reference:null,        // 무안경 랜덤 점 기준 영상과 추적점
   motion:null,           // 직전 프레임의 짐벌 보정 affine
   focusTrack:null,
@@ -1447,11 +1449,25 @@ function tick(){
     if(measured.signal<MIN_LENS_POWER){
       S.noLens=(S.noLens||0)+1; resetAutoSequence(); S.samples=[];
       renderLive(false);
-      setBanner("안경이 감지되지 않습니다 — 렌즈를 원 안에 넣으세요","warn");
+      /* 재측정 대기 중이라면, 렌즈가 실제로 치워진 것을 확인하고 게이트를 푼다. */
+      if(S.awaitRemoval&&S.noLens>=3){
+        S.awaitRemoval=false; renderEyeTabs();
+        setBanner("안경이 치워졌습니다 — 다시 놓고 렌즈를 원에 맞춰 주세요","ok");
+        return;
+      }
+      setBanner(S.awaitRemoval
+        ? "안경을 완전히 치워 주세요 (재측정 준비)"
+        : "안경이 감지되지 않습니다 — 렌즈를 원 안에 넣으세요","warn");
       return;
     }
 
     S.noLens=0;
+    /* 아직 치우지 않았으면 같은 자세가 그대로라 재측정 의미가 없다 — 저장을 막는다. */
+    if(S.awaitRemoval){
+      resetAutoSequence(); S.samples=[]; renderLive(false);
+      setBanner("먼저 안경을 완전히 치웠다가 다시 놓아 주세요","warn");
+      return;
+    }
     if(Date.now()<S.autoSaveCooldownUntil){
       resetAutoSequence(); S.samples=[]; renderLive(false);
       setBanner("다음 렌즈를 원 안에 맞춰 주세요","ok");
@@ -1552,23 +1568,16 @@ function renderLive(gotOne){
 }
 
 /* ---------- 저장/결과 ---------- */
-/* ---------- 2회(뒤집기) 측정 ----------
-   안경은 렌즈면이 다리에 대해 조금 기울어지게(경사각) 만들어져 있어, 한 자세로만
-   재면 그 기울기가 만든 원근 왜곡이 '없는 난시'로 섞여 들어온다. 안경을 앞뒤로
-   뒤집으면 그 기울기가 반대 방향이 되므로, 두 번의 측정을 평균하면 왜곡 성분이
-   상당 부분 상쇄된다. 두 값의 차이는 그대로 왜곡의 크기이므로 신뢰도로 표시한다.
-
-   화면 좌우와 실제 눈의 대응: 1차는 안경 앞면이 카메라를 향하므로 화면 오른쪽이
-   우안, 2차는 뒤집혀 있으므로 화면 오른쪽이 좌안이 된다. 사용자에게는 '화면
-   오른쪽/왼쪽'으로만 안내하고 눈 배정은 앱이 처리한다. */
-function eyeForSide(side,pass){
-  return pass===1 ? side : (side==="R"?"L":"R");
-}
+/* ---------- 같은 렌즈 2회 측정(반복성 검사) ----------
+   한 렌즈를 재고 → 안경을 치웠다가 → 다시 놓고 한 번 더 잰다. 두 값이 잘 맞으면
+   놓는 자세와 측정이 안정적이었다는 뜻이므로 신뢰도가 높다. 두 값을 평균해 최종
+   결과로 쓰고, 차이는 신뢰도로 표시한다.
+   주의: 같은 자세로 다시 놓으면 경사각(렌즈면 기울기)도 같이 재현되므로, 이
+   방식은 '반복성'을 보장할 뿐 경사각이 만든 왜곡 자체를 없애지는 못한다. */
 function mergePasses(eye){
   var a=S.passData[1][eye], b=S.passData[2][eye];
   if(!a||!b) return null;
   var avg={M:(a.M+b.M)/2, J0:(a.J0+b.J0)/2, J45:(a.J45+b.J45)/2};
-  /* 두 측정의 J 벡터 차이 절반 = 기울기가 만든 가짜 원주의 크기 추정 */
   var artifact=Math.hypot(a.J0-b.J0,a.J45-b.J45);
   var sphGap=Math.abs(a.M-b.M);
   return {vec:avg,artifact:artifact,sphGap:sphGap};
@@ -1576,9 +1585,9 @@ function mergePasses(eye){
 function confidenceOf(m){
   if(!m) return null;
   var worst=Math.max(m.artifact,m.sphGap);
-  if(worst<.20) return {level:"높음",cls:"ok",note:"두 측정이 잘 일치합니다"};
-  if(worst<.50) return {level:"보통",cls:"warn",note:"약간의 기울기 오차가 있었습니다"};
-  return {level:"낮음",cls:"bad",note:"두 측정 차이가 큽니다 — 안경 각도와 중간 위치를 다시 맞춰 재측정하세요"};
+  if(worst<.20) return {level:"높음",cls:"ok",note:"두 번의 측정이 잘 일치합니다"};
+  if(worst<.50) return {level:"보통",cls:"warn",note:"두 측정에 약간 차이가 있었습니다"};
+  return {level:"낮음",cls:"bad",note:"두 측정 차이가 큽니다 — 안경 위치·각도를 다시 맞추고 재측정하세요"};
 }
 function saveEye(automatic){
   automatic=automatic===true;
@@ -1586,27 +1595,32 @@ function saveEye(automatic){
   var agg=robustVec(source); if(!agg) return;
   resetAutoSequence();
 
-  var side=S.side, pass=S.pass, eye=eyeForSide(side,pass);
+  var eye=S.side, pass=S.pass;
   S.passData[pass][eye]=agg.vec;
 
   var merged=mergePasses(eye);
   if(merged){ S.results[eye]=vecToRx(merged.vec); S.merged[eye]=merged; }
+  else{ S.results[eye]=vecToRx(agg.vec); }   /* 1회차도 바로 보여 준다 */
   renderResults(); renderEyeTabs();
   if(automatic&&navigator.vibrate) navigator.vibrate(80);
   S.autoSaveCooldownUntil=automatic?Date.now()+AUTO_SAVE_SWITCH_DELAY:0;
   S.samples=[]; renderLive();
 
-  var doneLabel=(pass===1?"1차":"2차")+" · 화면 "+(side==="R"?"오른쪽":"왼쪽")+" 렌즈 저장됨";
-  toast(doneLabel+" ("+agg.n+"표본)");
+  var eyeName=eye==="R"?"우안":"좌안";
+  var rx=vecToRx(agg.vec);
+  var reading=fmtP(q25(rx.sph))+" / "+fmtP(q25(rx.cyl))
+            +(Math.abs(rx.cyl)>=.25?" × "+Math.round(rx.axis)+"°":"");
+  toast(eyeName+" "+pass+"회차: "+reading);
 
-  /* 진행: 오른쪽 → 왼쪽 → (뒤집기) → 오른쪽 → 왼쪽 */
-  if(side==="R"){
-    S.side="L"; renderEyeTabs(); renderLive();
-    setBanner(doneLabel+" — 이제 화면 왼쪽 렌즈를 원에 맞춰 주세요","ok");
-  }else if(pass===1){
-    S.pass=2; S.side="R"; renderEyeTabs(); renderLive();
-    setBanner("1차 완료 — 안경을 앞뒤로 뒤집어 같은 자리에 놓고, 화면 오른쪽 렌즈부터 다시 맞춰 주세요","ok");
-    toast("안경을 앞뒤로 뒤집어 주세요. 같은 자리, 같은 높이에 놓습니다.");
+  if(pass===1){
+    /* 같은 렌즈를 한 번 더 — 반드시 치웠다가 다시 놓게 한다. */
+    S.pass=2; S.awaitRemoval=true;
+    renderEyeTabs();
+    setBanner(eyeName+" 1회차 "+reading+" — 안경을 완전히 치웠다가 다시 놓아 주세요","warn");
+  }else if(eye==="R"){
+    S.side="L"; S.pass=1; S.awaitRemoval=true;
+    renderEyeTabs();
+    setBanner("우안 완료 — 안경을 치웠다가 다시 놓고, 좌안(화면 반대쪽) 렌즈를 맞춰 주세요","ok");
   }else{
     setBanner("측정 완료 — 결과와 신뢰도를 확인하세요","ok");
   }
@@ -1627,31 +1641,33 @@ function renderResults(){
 }
 function renderConfidence(){
   var el=$("confInfo"); if(!el) return;
-  var parts=[];
-  ["R","L"].forEach(function(e){
+  var list=["R","L"].map(function(e){
     var c=confidenceOf(S.merged[e]);
-    if(c) parts.push((e==="R"?"우":"좌")+" 신뢰도 "+c.level);
-  });
-  if(!parts.length){ el.textContent=""; el.className="hint"; return; }
-  var worst=["R","L"].map(function(e){return confidenceOf(S.merged[e]);})
-    .filter(Boolean).sort(function(a,b){
-      var o={"높음":0,"보통":1,"낮음":2}; return o[b.level]-o[a.level];})[0];
-  el.textContent=parts.join(" · ")+" — "+worst.note;
-  el.className="hint conf-"+worst.cls;
+    return c?{e:e,c:c}:null;
+  }).filter(Boolean);
+  if(!list.length){ el.textContent=""; el.className="hint"; return; }
+  var order={"높음":0,"보통":1,"낮음":2};
+  var worst=list.slice().sort(function(a,b){return order[b.c.level]-order[a.c.level];})[0];
+  el.textContent=list.map(function(x){
+    return (x.e==="R"?"우":"좌")+" 신뢰도 "+x.c.level;
+  }).join(" · ")+" — "+worst.c.note;
+  el.className="hint conf-"+worst.c.cls;
 }
 function renderEyeTabs(){
   var el=$("eyeGuide");
   if(!el) return;
-  var done=S.results.R&&S.results.L&&S.pass===2&&S.passData[2].R&&S.passData[2].L;
-  if(done){
+  if(S.passData[2].R&&S.passData[2].L){
     el.classList.add("done");
     el.innerHTML="측정 완료 ✓ 좌·우 각각 2회씩 측정했습니다";
     return;
   }
   el.classList.remove("done");
-  var stage=S.pass===1?"1차":"2차 (뒤집은 상태)";
-  var where=S.side==="R"?"화면 오른쪽":"화면 왼쪽";
-  el.innerHTML=stage+" · <b>"+where+" 렌즈</b>를 원에 맞추세요";
+  var eyeName=S.side==="R"?"우안 (OD)":"좌안 (OS)";
+  if(S.awaitRemoval){
+    el.innerHTML="<b>"+eyeName+" "+S.pass+"회차</b> — 안경을 치웠다가 다시 놓아 주세요";
+  }else{
+    el.innerHTML="<b>"+eyeName+" "+S.pass+"회차</b> 측정 중 — 렌즈를 원에 맞추세요";
+  }
 }
 function setEye(e){
   resetAutoSequence();
@@ -1753,10 +1769,10 @@ $("resetBtn").addEventListener("click",function(){
   resetAutoSequence();
   S.samples=[];S.results={R:null,L:null};S.autoSaveCooldownUntil=0;
   S.passData={1:{R:null,L:null},2:{R:null,L:null}};S.merged={R:null,L:null};
-  S.pass=1;S.side="R";
+  S.pass=1;S.side="R";S.awaitRemoval=false;
   renderResults();renderEyeTabs();renderLive();
-  setBanner(S.reference?"저장 결과가 삭제되었습니다 — 1차 화면 오른쪽 렌즈부터 다시":"초기화했습니다","warn");
-  toast("모든 측정 결과를 삭제했습니다. 1차부터 다시 시작합니다.");
+  setBanner(S.reference?"저장 결과가 삭제되었습니다 — 우안 1회차부터 다시":"초기화했습니다","warn");
+  toast("모든 측정 결과를 삭제했습니다. 우안 1회차부터 다시 시작합니다.");
 });
 $("stage").addEventListener("click",function(){if(!S.stream)startCam();});
 $("tgtBtn").addEventListener("click",shareTarget);
