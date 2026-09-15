@@ -19,14 +19,28 @@
   button{-webkit-tap-highlight-color:transparent}
   .wrap{width:min(560px,100%);margin:0 auto;
     padding:max(14px,env(safe-area-inset-top)) 14px max(28px,env(safe-area-inset-bottom))}
-  /* 가로로 눕혀 들 때: 글씨·버튼만 90도 돌려 똑바로 보이게 한다.
-     영상은 따로 건드리지 않고(확대·회전 없음) 페이지와 함께 돌아간다.
-     가로에서는 세로 공간이 좁으므로 카메라 화면을 줄여 결과·버튼이 보이게 한다. */
+  /* 회전 모드
+     rotL/rotR : 가로로 눕혀 들 때. 글씨·버튼이 90도 돌아 똑바로 보인다.
+                 가로에서는 세로 공간이 좁으므로 카메라를 왼쪽에 작게 두고
+                 오른쪽에 안내·기종·결과·버튼을 나란히 배치한다.
+     rot180    : 세로로 든 채 뒤집었을 때.
+     영상은 따로 확대·회전하지 않고 페이지와 함께 돈다. */
+  .shotgrid{display:block}
   body.rotL,body.rotR{position:fixed;top:50%;left:50%;
     width:100vh;height:100vw;overflow-y:auto;-webkit-overflow-scrolling:touch}
   body.rotL{transform:translate(-50%,-50%) rotate(-90deg);transform-origin:center center}
   body.rotR{transform:translate(-50%,-50%) rotate(90deg);transform-origin:center center}
-  body.rotL .stage,body.rotR .stage{height:62vw;width:auto;max-width:100%;margin:0 auto}
+  body.rot180{transform:rotate(180deg);transform-origin:center center}
+
+  body.rotL .shotgrid,body.rotR .shotgrid{
+    display:grid;grid-template-columns:minmax(0,38%) minmax(0,1fr);gap:12px;align-items:start}
+  body.rotL .shotcam,body.rotR .shotcam{position:sticky;top:0}
+  body.rotL .stage,body.rotR .stage{width:100%;height:auto}
+  body.rotL .shotctl,body.rotR .shotctl{min-width:0}
+  /* 가로에서는 헤더 설명문을 줄여 세로 공간을 확보한다 */
+  body.rotL header p,body.rotR header p{display:none}
+  body.rotL .live strong,body.rotR .live strong{font-size:1.15rem}
+
   #flipBtn.on{background:linear-gradient(135deg,#2f7fe0,#1fa6d8);color:#fff;border-color:transparent}
 
   header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
@@ -207,6 +221,8 @@
 
   <!-- 3. 촬영 -->
   <div class="card">
+    <div class="shotgrid">
+      <div class="shotcam">
     <div class="stage" id="stage">
       <video id="vid" playsinline muted class="hidden"></video>
       <div class="guide" id="guide" aria-hidden="true">
@@ -239,6 +255,8 @@
       <div class="banner" id="banner">대기 중</div>
     </div>
 
+      </div>
+      <div class="shotctl">
     <div class="refbox" id="refBox">
       <div>
         <b id="refTitle">무안경 기준이 필요합니다</b>
@@ -268,6 +286,8 @@
     <div class="row">
       <button id="resetBtn" class="btn" type="button">스캔 초기화</button>
       <button id="saveBtn" class="btn go" type="button" disabled>이 렌즈 저장 (수동)</button>
+    </div>
+      </div>
     </div>
   </div>
 
@@ -1781,27 +1801,33 @@ $("tgtFs").addEventListener("click",async function(){
 });
 (function(){
   var sensorOn=false;
-  /* mode: "" (세로) | "rotL" | "rotR" */
+  /* mode: "" (세로) | "rotL" | "rotR" | "rot180" */
   function applyRot(mode){
     var b=document.body;
     b.classList.toggle("rotL",mode==="rotL");
     b.classList.toggle("rotR",mode==="rotR");
+    b.classList.toggle("rot180",mode==="rot180");
     $("flipBtn").classList.toggle("on",!!mode);
     renderCardGuide();
   }
   function currentRot(){
     var b=document.body;
-    return b.classList.contains("rotL")?"rotL":b.classList.contains("rotR")?"rotR":"";
+    return b.classList.contains("rotL")?"rotL":
+           b.classList.contains("rotR")?"rotR":
+           b.classList.contains("rot180")?"rot180":"";
   }
   function motionHandler(e){
     var g=e.accelerationIncludingGravity;
-    if(!g||g.x==null) return;
-    /* 중력이 기기의 x축으로 쏠리면 가로로 눕힌 상태다. 히스테리시스를 둬
+    if(!g||g.x==null||g.y==null) return;
+    /* 중력이 어느 축으로 쏠리는지로 자세를 판정한다. 히스테리시스를 둬
        경계에서 화면이 덜덜 떨리지 않게 한다. */
     var cur=currentRot(), next=cur;
     if(g.x>5) next="rotL";
     else if(g.x<-5) next="rotR";
-    else if(Math.abs(g.x)<3) next="";
+    else if(Math.abs(g.x)<3){
+      if(g.y>5) next="rot180";
+      else if(g.y<-5) next="";
+    }
     if(next!==cur) applyRot(next);
   }
   function bindSensor(){
@@ -1809,11 +1835,11 @@ $("tgtFs").addEventListener("click",async function(){
     sensorOn=true;
     $("flipBtn").textContent="⟲✓";
     $("flipBtn").setAttribute("aria-label","자동 회전 감지 켜짐");
-    toast("자동 감지 켜짐 — 폰을 가로로 눕히면 화면이 자동으로 돌아갑니다.");
+    toast("자동 감지 켜짐 — 폰을 눕히거나 뒤집으면 화면이 자동으로 돌아갑니다.");
   }
   function manualCycle(){
     var cur=currentRot();
-    applyRot(cur===""?"rotL":cur==="rotL"?"rotR":"");
+    applyRot(cur===""?"rotL":cur==="rotL"?"rotR":cur==="rotR"?"rot180":"");
   }
   $("flipBtn").addEventListener("click",function(){
     if(sensorOn){ manualCycle(); return; }   /* 센서 켠 뒤엔 수동 임시 전환만 허용 */
