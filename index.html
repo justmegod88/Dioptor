@@ -1799,8 +1799,8 @@ $("tgtFs").addEventListener("click",async function(){
     /* 중력이 기기의 x축으로 쏠리면 가로로 눕힌 상태다. 히스테리시스를 둬
        경계에서 화면이 덜덜 떨리지 않게 한다. */
     var cur=currentRot(), next=cur;
-    if(g.x>5) next="rotR";
-    else if(g.x<-5) next="rotL";
+    if(g.x>5) next="rotL";
+    else if(g.x<-5) next="rotR";
     else if(Math.abs(g.x)<3) next="";
     if(next!==cur) applyRot(next);
   }
@@ -1813,7 +1813,7 @@ $("tgtFs").addEventListener("click",async function(){
   }
   function manualCycle(){
     var cur=currentRot();
-    applyRot(cur===""?"rotR":cur==="rotR"?"rotL":"");
+    applyRot(cur===""?"rotL":cur==="rotL"?"rotR":"");
   }
   $("flipBtn").addEventListener("click",function(){
     if(sensorOn){ manualCycle(); return; }   /* 센서 켠 뒤엔 수동 임시 전환만 허용 */
