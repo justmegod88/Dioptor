@@ -36,14 +36,13 @@
   body.rotR{transform:translate(-50%,-50%) rotate(90deg);transform-origin:center center}
   body.rot180{transform:rotate(180deg);transform-origin:center center}
 
-  /* 가로에서는 카메라도 가로로 길게(4:3) 보여 화면 폭을 제대로 쓴다.
-     영상은 object-fit:cover로 위아래가 잘리고, 가이드 SVG도 같은 방식으로
-     맞추기 위해 preserveAspectRatio를 slice로 바꾼다(applyRot 참고). */
+  /* 가로에서는 영상은 세로 버전과 똑같이 3:4 그대로 두고,
+     버튼·측정값·결과표만 오른쪽으로 옮긴다. */
   body.rotL .wrap,body.rotR .wrap{width:100%;max-width:none;padding:10px 14px}
   body.rotL .shotgrid,body.rotR .shotgrid{
     display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:start}
   body.rotL .shotcam,body.rotR .shotcam{position:sticky;top:0}
-  body.rotL .stage,body.rotR .stage{aspect-ratio:4/3;height:min(66vw,280px);width:auto}
+  body.rotL .stage,body.rotR .stage{height:min(82vw,340px);width:auto}
   body.rotL .shotctl,body.rotR .shotctl{min-width:0}
   body.rotL header p,body.rotR header p{display:none}
   body.rotL header,body.rotR header{margin-bottom:6px}
@@ -674,10 +673,10 @@ function renderCardGuide(){
   var r=$("gCard"), lb=$("gCardLabel");
   if(!w){ if(r) r.setAttribute("width",0); if(lb) lb.setAttribute("opacity",0); return; }
   if(lb) lb.setAttribute("opacity",".8");
-  var rot=document.body.classList.contains("rotL")||document.body.classList.contains("rotR");
-  /* 세워서 들 때(기본)는 원 아래 별도 박스, 가로로 눕혀 찍을 때는
-     카드와 안경이 같은 자리에 오므로 렌즈 원과 같은 중심에 겹쳐 그린다. */
-  var cx=150, cy=rot?185:350, x=cx-w/2, y=cy-h/2;
+  var flipped=document.body.classList.contains("rot180");
+  /* 세워서 들 때(기본)와 가로일 때는 원 아래 별도 박스, 180도 뒤집어
+     눕혀 찍을 때는 카드와 안경이 같은 자리에 오므로 원 안에 겹쳐 그린다. */
+  var cx=150, cy=flipped?185:350, x=cx-w/2, y=cy-h/2;
   if(r){
     r.setAttribute("x",x);r.setAttribute("y",y);
     r.setAttribute("width",Math.max(2,w));r.setAttribute("height",Math.max(2,h));
@@ -1815,11 +1814,6 @@ $("tgtFs").addEventListener("click",async function(){
     b.classList.toggle("rotR",mode==="rotR");
     b.classList.toggle("rot180",mode==="rot180");
     $("flipBtn").classList.toggle("on",!!mode);
-    /* 세로(3:4)에서는 'none'이 정확히 원을 만들지만, 가로(4:3)에서는 늘어나
-       타원이 된다. 영상과 같은 crop 방식인 slice로 바꿔 원을 유지한다. */
-    var gsvg=$("guide")&&$("guide").querySelector("svg");
-    if(gsvg) gsvg.setAttribute("preserveAspectRatio",
-      (mode==="rotL"||mode==="rotR")?"xMidYMid slice":"none");
     renderCardGuide();
   }
   function currentRot(){
