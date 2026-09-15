@@ -21,25 +21,32 @@
     padding:max(14px,env(safe-area-inset-top)) 14px max(28px,env(safe-area-inset-bottom))}
   /* 회전 모드
      rotL/rotR : 가로로 눕혀 들 때. 글씨·버튼이 90도 돌아 똑바로 보인다.
-                 가로에서는 세로 공간이 좁으므로 카메라를 왼쪽에 작게 두고
-                 오른쪽에 안내·기종·결과·버튼을 나란히 배치한다.
+                 가로에서는 화면 전체 폭을 써서 왼쪽에 카메라, 오른쪽에
+                 안내·기종·측정값·버튼·결과표를 세로로 쌓는다.
      rot180    : 세로로 든 채 뒤집었을 때.
      영상은 따로 확대·회전하지 않고 페이지와 함께 돈다. */
   .shotgrid{display:block}
+  /* 결과 카드가 컨트롤 칸 안에 들어가므로, 세로에서는 카드 테두리를 없애
+     기존처럼 이어지는 한 덩어리로 보이게 한다. */
+  .shotctl > .card{border:0;background:transparent;padding:14px 0 0;margin:0}
+
   body.rotL,body.rotR{position:fixed;top:50%;left:50%;
     width:100vh;height:100vw;overflow-y:auto;-webkit-overflow-scrolling:touch}
   body.rotL{transform:translate(-50%,-50%) rotate(-90deg);transform-origin:center center}
   body.rotR{transform:translate(-50%,-50%) rotate(90deg);transform-origin:center center}
   body.rot180{transform:rotate(180deg);transform-origin:center center}
 
+  /* 가로에서는 카메라도 가로로 길게(4:3) 보여 화면 폭을 제대로 쓴다.
+     영상은 object-fit:cover로 위아래가 잘리고, 가이드 SVG도 같은 방식으로
+     맞추기 위해 preserveAspectRatio를 slice로 바꾼다(applyRot 참고). */
+  body.rotL .wrap,body.rotR .wrap{width:100%;max-width:none;padding:10px 14px}
   body.rotL .shotgrid,body.rotR .shotgrid{
-    display:grid;grid-template-columns:minmax(0,38%) minmax(0,1fr);gap:12px;align-items:start}
+    display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:start}
   body.rotL .shotcam,body.rotR .shotcam{position:sticky;top:0}
-  body.rotL .stage,body.rotR .stage{width:100%;height:auto}
+  body.rotL .stage,body.rotR .stage{aspect-ratio:4/3;height:min(66vw,280px);width:auto}
   body.rotL .shotctl,body.rotR .shotctl{min-width:0}
-  /* 가로에서는 헤더 설명문을 줄여 세로 공간을 확보한다 */
   body.rotL header p,body.rotR header p{display:none}
-  body.rotL .live strong,body.rotR .live strong{font-size:1.15rem}
+  body.rotL header,body.rotR header{margin-bottom:6px}
 
   #flipBtn.on{background:linear-gradient(135deg,#2f7fe0,#1fa6d8);color:#fff;border-color:transparent}
 
@@ -287,27 +294,27 @@
       <button id="resetBtn" class="btn" type="button">스캔 초기화</button>
       <button id="saveBtn" class="btn go" type="button" disabled>이 렌즈 저장 (수동)</button>
     </div>
+    <!-- 4. 결과 -->
+    <div class="card">
+      <table class="rxtable">
+        <thead><tr><th></th><th>SPH</th><th>CYL</th><th>AXIS</th><th>SE</th></tr></thead>
+        <tbody>
+          <tr><td class="eye">우 OD</td>
+            <td id="rR_s" class="pending">—</td><td id="rR_c" class="pending">—</td>
+            <td id="rR_a" class="pending">—</td><td id="rR_e" class="pending">—</td></tr>
+          <tr><td class="eye">좌 OS</td>
+            <td id="rL_s" class="pending">—</td><td id="rL_c" class="pending">—</td>
+            <td id="rL_a" class="pending">—</td><td id="rL_e" class="pending">—</td></tr>
+        </tbody>
+      </table>
+      <p class="hint" id="confInfo"></p>
+      <div class="disc"><span>⚠</span><span>대략적 추정값입니다. 렌즈미터·검안을 대신할 수 없고 처방·판매에 사용할 수 없습니다.</span></div>
+    </div>
+  </div>
       </div>
     </div>
   </div>
 
-  <!-- 4. 결과 -->
-  <div class="card">
-    <table class="rxtable">
-      <thead><tr><th></th><th>SPH</th><th>CYL</th><th>AXIS</th><th>SE</th></tr></thead>
-      <tbody>
-        <tr><td class="eye">우 OD</td>
-          <td id="rR_s" class="pending">—</td><td id="rR_c" class="pending">—</td>
-          <td id="rR_a" class="pending">—</td><td id="rR_e" class="pending">—</td></tr>
-        <tr><td class="eye">좌 OS</td>
-          <td id="rL_s" class="pending">—</td><td id="rL_c" class="pending">—</td>
-          <td id="rL_a" class="pending">—</td><td id="rL_e" class="pending">—</td></tr>
-      </tbody>
-    </table>
-    <p class="hint" id="confInfo"></p>
-    <div class="disc"><span>⚠</span><span>대략적 추정값입니다. 렌즈미터·검안을 대신할 수 없고 처방·판매에 사용할 수 없습니다.</span></div>
-  </div>
-</div>
 
 <!-- 타깃 -->
 <div id="tgtView" class="tgt hidden">
@@ -1808,6 +1815,11 @@ $("tgtFs").addEventListener("click",async function(){
     b.classList.toggle("rotR",mode==="rotR");
     b.classList.toggle("rot180",mode==="rot180");
     $("flipBtn").classList.toggle("on",!!mode);
+    /* 세로(3:4)에서는 'none'이 정확히 원을 만들지만, 가로(4:3)에서는 늘어나
+       타원이 된다. 영상과 같은 crop 방식인 slice로 바꿔 원을 유지한다. */
+    var gsvg=$("guide")&&$("guide").querySelector("svg");
+    if(gsvg) gsvg.setAttribute("preserveAspectRatio",
+      (mode==="rotL"||mode==="rotR")?"xMidYMid slice":"none");
     renderCardGuide();
   }
   function currentRot(){
