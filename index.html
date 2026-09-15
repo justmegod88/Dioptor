@@ -19,15 +19,14 @@
   button{-webkit-tap-highlight-color:transparent}
   .wrap{width:min(560px,100%);margin:0 auto;
     padding:max(14px,env(safe-area-inset-top)) 14px max(28px,env(safe-area-inset-bottom))}
-  /* 가로로 눕혀 들 때: 페이지 전체를 90도 돌리고, 돌아간 방향에 맞춰 가로/세로를 맞바꾼다.
-     영상은 브라우저가 이미 세계 기준으로 세워서 주므로 반대로 상쇄해야 똑바로 보인다.
-     3:4 비율의 stage를 90도 돌리면 빈 곳이 생기므로 4/3 배 확대해 채운다. */
+  /* 가로로 눕혀 들 때: 글씨·버튼만 90도 돌려 똑바로 보이게 한다.
+     영상은 따로 건드리지 않고(확대·회전 없음) 페이지와 함께 돌아간다.
+     가로에서는 세로 공간이 좁으므로 카메라 화면을 줄여 결과·버튼이 보이게 한다. */
   body.rotL,body.rotR{position:fixed;top:50%;left:50%;
     width:100vh;height:100vw;overflow-y:auto;-webkit-overflow-scrolling:touch}
   body.rotL{transform:translate(-50%,-50%) rotate(-90deg);transform-origin:center center}
   body.rotR{transform:translate(-50%,-50%) rotate(90deg);transform-origin:center center}
-  body.rotL #vid{transform:rotate(90deg) scale(1.3334)}
-  body.rotR #vid{transform:rotate(-90deg) scale(1.3334)}
+  body.rotL .stage,body.rotR .stage{height:62vw;width:auto;max-width:100%;margin:0 auto}
   #flipBtn.on{background:linear-gradient(135deg,#2f7fe0,#1fa6d8);color:#fff;border-color:transparent}
 
   header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
