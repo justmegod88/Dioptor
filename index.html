@@ -19,42 +19,8 @@
   button{-webkit-tap-highlight-color:transparent}
   .wrap{width:min(560px,100%);margin:0 auto;
     padding:max(14px,env(safe-area-inset-top)) 14px max(28px,env(safe-area-inset-bottom))}
-  /* 회전 모드
-     rotL/rotR : 가로로 눕혀 들 때. 글씨·버튼이 90도 돌아 똑바로 보인다.
-                 가로에서는 화면 전체 폭을 써서 왼쪽에 카메라, 오른쪽에
-                 안내·기종·측정값·버튼·결과표를 세로로 쌓는다.
-     rot180    : 세로로 든 채 뒤집었을 때.
-     영상은 따로 확대·회전하지 않고 페이지와 함께 돈다. */
-  .shotgrid{display:block}
-  /* 결과 카드가 컨트롤 칸 안에 들어가므로, 세로에서는 카드 테두리를 없애
-     기존처럼 이어지는 한 덩어리로 보이게 한다. */
-  .shotctl > .card{border:0;background:transparent;padding:14px 0 0;margin:0}
-
-  body.rotL,body.rotR{position:fixed;top:50%;left:50%;
-    width:100vh;height:100vw;overflow-y:auto;-webkit-overflow-scrolling:touch}
-  body.rotL{transform:translate(-50%,-50%) rotate(-90deg);transform-origin:center center}
-  body.rotR{transform:translate(-50%,-50%) rotate(90deg);transform-origin:center center}
-  body.rot180{transform:rotate(180deg);transform-origin:center center}
-
-  /* 가로에서는 영상을 90도 돌려 상이 똑바로 보이게 한다.
-     세로 영상(3:4)을 90도 돌리면 정확히 4:3이 되므로, 화면을 4:3으로 두면
-     잘리는 부분 없이 딱 맞는다. 가이드 원도 같이 돌려야 영상과 어긋나지 않는다. */
-  body.rotL .wrap,body.rotR .wrap{width:100%;max-width:none;padding:10px 14px}
-  body.rotL .shotgrid,body.rotR .shotgrid{
-    display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:start}
-  body.rotL .shotcam,body.rotR .shotcam{position:sticky;top:0}
-  body.rotL .stage,body.rotR .stage{aspect-ratio:4/3;height:min(64vw,270px);width:auto}
-  body.rotL .stage video,body.rotL .stage canvas.view,body.rotL .stage .guide,
-  body.rotR .stage video,body.rotR .stage canvas.view,body.rotR .stage .guide{
-    inset:auto;top:50%;left:50%;width:75%;height:133.3333%;transform-origin:center center}
-  body.rotL .stage video,body.rotL .stage canvas.view,body.rotL .stage .guide{
-    transform:translate(-50%,-50%) rotate(90deg)}
-  body.rotR .stage video,body.rotR .stage canvas.view,body.rotR .stage .guide{
-    transform:translate(-50%,-50%) rotate(-90deg)}
-  body.rotL .shotctl,body.rotR .shotctl{min-width:0}
-  body.rotL header p,body.rotR header p{display:none}
-  body.rotL header,body.rotR header{margin-bottom:6px}
-
+  body.flipped{transform:rotate(180deg);transform-origin:center center}
+  body.flipped #vid{transform:rotate(180deg)}
   #flipBtn.on{background:linear-gradient(135deg,#2f7fe0,#1fa6d8);color:#fff;border-color:transparent}
 
   header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
@@ -235,8 +201,6 @@
 
   <!-- 3. 촬영 -->
   <div class="card">
-    <div class="shotgrid">
-      <div class="shotcam">
     <div class="stage" id="stage">
       <video id="vid" playsinline muted class="hidden"></video>
       <div class="guide" id="guide" aria-hidden="true">
@@ -269,8 +233,6 @@
       <div class="banner" id="banner">대기 중</div>
     </div>
 
-      </div>
-      <div class="shotctl">
     <div class="refbox" id="refBox">
       <div>
         <b id="refTitle">무안경 기준이 필요합니다</b>
@@ -301,27 +263,25 @@
       <button id="resetBtn" class="btn" type="button">스캔 초기화</button>
       <button id="saveBtn" class="btn go" type="button" disabled>이 렌즈 저장 (수동)</button>
     </div>
-    <!-- 4. 결과 -->
-    <div class="card">
-      <table class="rxtable">
-        <thead><tr><th></th><th>SPH</th><th>CYL</th><th>AXIS</th><th>SE</th></tr></thead>
-        <tbody>
-          <tr><td class="eye">우 OD</td>
-            <td id="rR_s" class="pending">—</td><td id="rR_c" class="pending">—</td>
-            <td id="rR_a" class="pending">—</td><td id="rR_e" class="pending">—</td></tr>
-          <tr><td class="eye">좌 OS</td>
-            <td id="rL_s" class="pending">—</td><td id="rL_c" class="pending">—</td>
-            <td id="rL_a" class="pending">—</td><td id="rL_e" class="pending">—</td></tr>
-        </tbody>
-      </table>
-      <p class="hint" id="confInfo"></p>
-      <div class="disc"><span>⚠</span><span>대략적 추정값입니다. 렌즈미터·검안을 대신할 수 없고 처방·판매에 사용할 수 없습니다.</span></div>
-    </div>
-  </div>
-      </div>
-    </div>
   </div>
 
+  <!-- 4. 결과 -->
+  <div class="card">
+    <table class="rxtable">
+      <thead><tr><th></th><th>SPH</th><th>CYL</th><th>AXIS</th><th>SE</th></tr></thead>
+      <tbody>
+        <tr><td class="eye">우 OD</td>
+          <td id="rR_s" class="pending">—</td><td id="rR_c" class="pending">—</td>
+          <td id="rR_a" class="pending">—</td><td id="rR_e" class="pending">—</td></tr>
+        <tr><td class="eye">좌 OS</td>
+          <td id="rL_s" class="pending">—</td><td id="rL_c" class="pending">—</td>
+          <td id="rL_a" class="pending">—</td><td id="rL_e" class="pending">—</td></tr>
+      </tbody>
+    </table>
+    <p class="hint" id="confInfo"></p>
+    <div class="disc"><span>⚠</span><span>대략적 추정값입니다. 렌즈미터·검안을 대신할 수 없고 처방·판매에 사용할 수 없습니다.</span></div>
+  </div>
+</div>
 
 <!-- 타깃 -->
 <div id="tgtView" class="tgt hidden">
@@ -458,34 +418,44 @@
         <li>카메라가 자동으로 켜지면 <b>안경을 두지 않은 상태</b>로 ‘기준 잡기’를 누릅니다.</li>
         <li>기준이 완료되면 휴대폰과 책을 움직이지 말고, 안경을 정확히 중간인 <b>카메라에서 100mm</b> 위치에 수평으로 둡니다.</li>
       </ol>
-      <h3>폰을 가로로 눕혀서 쓰기</h3>
-      <p>세로로 든 자세로는 카메라 렌즈가 위쪽 모서리에 있어 안경이 화면 아래로
+      <h3>폰을 뒤집어서 쓰기</h3>
+      <p>안경을 책 앞 받침 위에 놓고 찍을 때, 폰을 세운 채로는 안경이 화면 아래로
       벗어나기 쉽습니다. 안드로이드 등 대부분의 기기는 <b>페이지를 열면 바로</b>
       자동 회전 감지가 켜집니다. 아이폰(iOS)은 보안 정책상 헤더의 ⟲ 버튼을
       <b>한 번 눌러 동작 센서 권한을 허용</b>해야 켜집니다. 켜진 뒤로는
-      <b>휴대폰을 가로로 눕힐 때마다 화면 글씨·버튼이 자동으로 90도 회전</b>해
-      눕혀 들어도 똑바로 보이고, 카메라 영상은 세계 기준 그대로 유지됩니다 —
-      도수 계산에는 영향이 없습니다. 좌·우 어느 쪽으로 눕혀도 방향을 알아서
-      맞춥니다. 센서를 지원하지 않는 기기에서는 ⟲ 버튼이 세로 → 오른쪽 가로 →
-      왼쪽 가로 순으로 수동 전환합니다.</p>
+      <b>휴대폰을 실제로 뒤집을 때마다 화면 글씨·버튼(카메라 화면 위 안내
+      문구 포함)이 자동으로 180도 전환</b>되고, 카메라 원본 영상만 그대로
+      유지됩니다 — 도수 계산에는 영향이 없습니다. 센서를 지원하지 않는
+      기기에서는 버튼이 수동 전환으로 동작합니다.</p>
+      <p><b>휴대폰 수평 표시</b> — 같은 센서 권한으로, 안경을 눕혀서 스탠드에
+      올려놓고 위에서 촬영하는 방식일 때 폰이 평평한지를 실시간으로
+      보여줍니다(‘측정 거리’ 표시 아래). 폰(또는 촬영 리그)이 기울면 렌즈면이
+      카메라와 평행하지 않게 되어, <b>실제로 없는 난시(CYL)가 계산에 섞여
+      들어갈 수 있습니다</b> — 렌즈를 비스듬히 보면 원이 타원으로 찌그러져
+      보이는 것과 같은 원리입니다. 다만 이건 사진 한 장의 수학적 한계라
+      완전히 자동으로 걸러낼 수는 없고, 수평 표시로 그 위험을 줄이는
+      정도입니다. 안경테를 손으로 든 상태에서 잰 값과 눕혀서 잰 값이 많이
+      다르면, 눕힌 자세가 기울었을 가능성을 의심해 보세요.</p>
+      <p><b>렌즈 기울기 보정(경사각)</b> — 안경다리가 평평해도 렌즈면 자체는
+      원래 앞으로 몇 도 기울게(경사각) 설계돼 있어서, 눕혀 놓으면 렌즈면이
+      기울어진 채로 있기 쉽습니다. 실제로 측정할 자세 그대로 둔 상태에서
+      <b>폰 화면을 렌즈 앞면에 살짝 대고 ‘렌즈 기울기 재기’</b>를 누르면
+      그 순간의 기울기를 저장합니다. 이후 촬영 중 폰의 실시간 기울기와
+      비교해 그 차이만큼 원근 압축을 역산해 보정합니다. 다만 이건 기하학적
+      근사 보정이라 완벽하지 않고, 곡면이 큰 랩어라운드 렌즈에는 잘
+      맞지 않을 수 있습니다. 폰 방향은 잴 때와 촬영할 때 같아야 합니다.</p>
       <h3>측정</h3>
       <ol>
-        <li><b>우안 1회차</b> — 우안 렌즈를 점선 원 안에 맞춥니다.</li>
-        <li>초록 안내가 뜨도록 그대로 유지하면 안정된 측정 5회 후 <b>자동 저장</b>되고 도수가 바로 표시됩니다.</li>
-        <li><b>안경을 완전히 치웠다가 다시 놓고</b> 같은 렌즈를 한 번 더 측정합니다(2회차).</li>
-        <li>좌안도 같은 방식으로 2회 측정합니다.</li>
+        <li>우안/좌안을 선택합니다.</li>
+        <li>점선 원 안에 렌즈 중앙이 오도록 맞춥니다.</li>
+        <li>초록 안내가 뜨도록 그대로 유지하면 안정된 측정 5회 후 <b>자동 저장</b>됩니다.</li>
+        <li>반대쪽 눈으로 반복합니다.</li>
       </ol>
-      <p><b>신뢰도</b> — 같은 렌즈를 두 번 재서 값이 얼마나 잘 맞는지로 계산합니다.
-      두 값 차이가 0.20D 미만이면 ‘높음’, 0.50D 미만이면 ‘보통’, 그 이상이면 ‘낮음’으로
-      표시하고 재측정을 안내합니다. 최종 도수는 두 값의 평균입니다. 이 값은
-      <b>반복성</b>(같은 결과가 다시 나오는가)을 나타내며, 안경을 매번 같은 각도로
-      놓으면 렌즈면 기울기에서 오는 오차는 두 번 모두 같게 나타나 이 지표로는
-      걸러지지 않는다는 점을 참고하세요.</p>
       <h3>거리 맞추기 (카드 정렬 가이드)</h3>
       <p><b>먼저 ‘내 휴대폰 기종’을 한 번 선택하세요.</b> 그러면 <b>20cm 거리에서
       신용카드가 보이는 크기</b>의 노란 사각형 테두리가 그려집니다. 폰을 세워서
       드는 기본 자세에서는 이 테두리가 렌즈 원 아래쪽에 따로 나타나고, 폰을
-      가로로 눕힌 상태에서는 카드와 안경이 같은 자리에 놓이므로
+      뒤집은 상태(눕혀 찍기)에서는 카드와 안경이 같은 자리에 놓이므로
       <b>렌즈를 맞추는 원 안에 겹쳐서</b> 나타납니다. 실물 카드를 <b>책 표지에
       붙여 놓고</b> 테두리와 같은 크기로 보일 때까지 휴대폰을 앞뒤로 움직이면,
       그 위치가 카메라↔책 20cm입니다. 카드는 반드시 책과 같은 면에 있어야
@@ -681,9 +651,9 @@ function renderCardGuide(){
   var r=$("gCard"), lb=$("gCardLabel");
   if(!w){ if(r) r.setAttribute("width",0); if(lb) lb.setAttribute("opacity",0); return; }
   if(lb) lb.setAttribute("opacity",".8");
-  var flipped=document.body.classList.contains("rot180");
-  /* 세워서 들 때(기본)와 가로일 때는 원 아래 별도 박스, 180도 뒤집어
-     눕혀 찍을 때는 카드와 안경이 같은 자리에 오므로 원 안에 겹쳐 그린다. */
+  var flipped=document.body.classList.contains("flipped");
+  /* 세워서 들 때(기본)는 원 아래 별도 박스, 눕혀서 위에서 찍을 때(뒤집기)는
+     카드와 안경이 같은 자리에 오므로 렌즈 원과 같은 중심에 겹쳐 그린다. */
   var cx=150, cy=flipped?185:350, x=cx-w/2, y=cy-h/2;
   if(r){
     r.setAttribute("x",x);r.setAttribute("y",y);
@@ -1815,57 +1785,38 @@ $("tgtFs").addEventListener("click",async function(){
 });
 (function(){
   var sensorOn=false;
-  /* mode: "" (세로) | "rotL" | "rotR" | "rot180" */
-  function applyRot(mode){
-    var b=document.body;
-    b.classList.toggle("rotL",mode==="rotL");
-    b.classList.toggle("rotR",mode==="rotR");
-    b.classList.toggle("rot180",mode==="rot180");
-    $("flipBtn").classList.toggle("on",!!mode);
+  function applyFlip(on){
+    document.body.classList.toggle("flipped",on);
+    $("flipBtn").classList.toggle("on",on);
     renderCardGuide();
-  }
-  function currentRot(){
-    var b=document.body;
-    return b.classList.contains("rotL")?"rotL":
-           b.classList.contains("rotR")?"rotR":
-           b.classList.contains("rot180")?"rot180":"";
   }
   function motionHandler(e){
     var g=e.accelerationIncludingGravity;
-    if(!g||g.x==null||g.y==null) return;
-    /* 중력이 어느 축으로 쏠리는지로 자세를 판정한다. 히스테리시스를 둬
-       경계에서 화면이 덜덜 떨리지 않게 한다. */
-    var cur=currentRot(), next=cur;
-    if(g.x>5) next="rotL";
-    else if(g.x<-5) next="rotR";
-    else if(Math.abs(g.x)<3){
-      if(g.y>5) next="rot180";
-      else if(g.y<-5) next="";
-    }
-    if(next!==cur) applyRot(next);
+    if(!g||g.y==null) return;
+    var on=g.y>4;
+    if(document.body.classList.contains("flipped")!==on) applyFlip(on);
   }
   function bindSensor(){
     window.addEventListener("devicemotion",motionHandler);
     sensorOn=true;
     $("flipBtn").textContent="⟲✓";
     $("flipBtn").setAttribute("aria-label","자동 회전 감지 켜짐");
-    toast("자동 감지 켜짐 — 폰을 눕히거나 뒤집으면 화면이 자동으로 돌아갑니다.");
+    toast("자동 감지 켜짐 — 폰을 뒤집으면 화면이 자동으로 전환됩니다.");
   }
-  function manualCycle(){
-    var cur=currentRot();
-    applyRot(cur===""?"rotL":cur==="rotL"?"rotR":cur==="rotR"?"rot180":"");
+  function manualToggle(){
+    applyFlip(!document.body.classList.contains("flipped"));
   }
   $("flipBtn").addEventListener("click",function(){
-    if(sensorOn){ manualCycle(); return; }   /* 센서 켠 뒤엔 수동 임시 전환만 허용 */
+    if(sensorOn){ manualToggle(); return; }              /* 센서 켠 뒤엔 수동 임시 반전만 허용 */
     if(typeof DeviceMotionEvent!=="undefined"&&typeof DeviceMotionEvent.requestPermission==="function"){
       DeviceMotionEvent.requestPermission().then(function(r){
         if(r==="granted") bindSensor();
         else toast("동작 센서 권한이 필요합니다. 설정에서 허용한 뒤 다시 눌러주세요.");
-      }).catch(function(){ toast("센서를 쓸 수 없어 수동 버튼으로 동작합니다."); manualCycle(); });
+      }).catch(function(){ toast("센서를 쓸 수 없어 수동 버튼으로 동작합니다."); manualToggle(); });
     }else if(typeof DeviceMotionEvent!=="undefined"){
       bindSensor();
     }else{
-      manualCycle();
+      manualToggle();
     }
   });
   /* 권한 프롬프트가 필요 없는 브라우저(대부분의 안드로이드 등)는 버튼을
