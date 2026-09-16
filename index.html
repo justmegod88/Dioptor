@@ -36,13 +36,21 @@
   body.rotR{transform:translate(-50%,-50%) rotate(90deg);transform-origin:center center}
   body.rot180{transform:rotate(180deg);transform-origin:center center}
 
-  /* 가로에서는 영상은 세로 버전과 똑같이 3:4 그대로 두고,
-     버튼·측정값·결과표만 오른쪽으로 옮긴다. */
+  /* 가로에서는 영상을 90도 돌려 상이 똑바로 보이게 한다.
+     세로 영상(3:4)을 90도 돌리면 정확히 4:3이 되므로, 화면을 4:3으로 두면
+     잘리는 부분 없이 딱 맞는다. 가이드 원도 같이 돌려야 영상과 어긋나지 않는다. */
   body.rotL .wrap,body.rotR .wrap{width:100%;max-width:none;padding:10px 14px}
   body.rotL .shotgrid,body.rotR .shotgrid{
     display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:start}
   body.rotL .shotcam,body.rotR .shotcam{position:sticky;top:0}
-  body.rotL .stage,body.rotR .stage{height:min(82vw,340px);width:auto}
+  body.rotL .stage,body.rotR .stage{aspect-ratio:4/3;height:min(64vw,270px);width:auto}
+  body.rotL .stage video,body.rotL .stage canvas.view,body.rotL .stage .guide,
+  body.rotR .stage video,body.rotR .stage canvas.view,body.rotR .stage .guide{
+    inset:auto;top:50%;left:50%;width:75%;height:133.3333%;transform-origin:center center}
+  body.rotL .stage video,body.rotL .stage canvas.view,body.rotL .stage .guide{
+    transform:translate(-50%,-50%) rotate(90deg)}
+  body.rotR .stage video,body.rotR .stage canvas.view,body.rotR .stage .guide{
+    transform:translate(-50%,-50%) rotate(-90deg)}
   body.rotL .shotctl,body.rotR .shotctl{min-width:0}
   body.rotL header p,body.rotR header p{display:none}
   body.rotL header,body.rotR header{margin-bottom:6px}
