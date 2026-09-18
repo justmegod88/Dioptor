@@ -19,6 +19,9 @@
   button{-webkit-tap-highlight-color:transparent}
   .wrap{width:min(560px,100%);margin:0 auto;
     padding:max(14px,env(safe-area-inset-top)) 14px max(28px,env(safe-area-inset-bottom))}
+  body.flipped{transform:rotate(180deg);transform-origin:center center}
+  body.flipped #vid{transform:rotate(180deg)}
+  #flipBtn.on{background:linear-gradient(135deg,#2f7fe0,#1fa6d8);color:#fff;border-color:transparent}
 
   header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
   header h1{margin:0;font-size:1.15rem;letter-spacing:-.03em}
@@ -32,14 +35,12 @@
   .target-card{padding:8px 10px;margin-bottom:8px}
   .target-card .btn{min-height:44px}
 
-  /* eye selector */
-  .eye-sel{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:5px;
-    border:1px solid var(--line);border-radius:14px;background:var(--panel2);margin-bottom:8px}
-  .eye-btn{min-height:48px;border:0;border-radius:10px;background:transparent;
-    color:var(--muted);cursor:pointer;font-weight:800;display:grid;place-items:center;line-height:1.2}
-  .eye-btn small{display:block;font-size:.68rem;font-weight:600;opacity:.75}
-  .eye-btn.on{background:linear-gradient(135deg,#2f7fe0,#1fa6d8);color:#fff}
-  .eye-btn .done{color:var(--mint);font-size:.68rem;font-weight:700}
+  /* 측정 순서 안내 (선택 UI 없음, 오른쪽부터 자동 순서) */
+  .eye-guide{padding:12px 14px;border-radius:14px;border:1px solid var(--line);
+    background:var(--panel2);margin-bottom:8px;text-align:center;
+    color:var(--muted);font-size:.86rem;font-weight:700}
+  .eye-guide b{color:var(--ink);font-weight:850}
+  .eye-guide.done{color:var(--mint);border-color:rgba(47,224,168,.3)}
 
   /* stage */
   .stage{position:relative;aspect-ratio:3/4;overflow:hidden;border-radius:14px;
@@ -144,6 +145,25 @@
   .modal .mb ol,.modal .mb ul{margin:0;padding-left:18px}
   .modal .mb li{margin-bottom:6px}
 
+  /* 온보딩 튜토리얼 */
+  .tut .mb{padding:0 16px 16px}
+  .tutstep{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+  .tutstep:last-of-type{border-bottom:0}
+  .tutnum{flex:0 0 26px;height:26px;border-radius:50%;display:grid;place-items:center;
+    background:#7fd8ff;color:#04121c;font-weight:850;font-size:.78rem}
+  .tutbody{flex:1;min-width:0}
+  .tutbody b{display:block;color:var(--ink);font-size:.88rem;margin-bottom:3px}
+  .tutbody span{display:block;color:#cfdcec;font-size:.8rem;line-height:1.5}
+  .tutfig{margin-top:9px;border-radius:11px;border:1px solid var(--line);
+    background:rgba(255,255,255,.03);padding:9px}
+  .tutfig svg{display:block;width:100%;height:auto}
+  .tutflip{margin-top:12px;padding:11px 13px;border-radius:13px;
+    border:1px solid rgba(127,216,255,.25);background:rgba(127,216,255,.07);
+    color:#bfe9ff;font-size:.79rem;line-height:1.5}
+  .tutfoot{position:sticky;bottom:0;display:flex;gap:8px;padding:12px 16px;
+    border-top:1px solid var(--line);background:var(--panel)}
+  .tutfoot .btn{flex:1}
+
   .toast{position:fixed;left:50%;bottom:26px;z-index:90;transform:translate(-50%,14px);
     max-width:calc(100% - 30px);padding:10px 14px;border-radius:12px;
     background:rgba(8,14,24,.95);border:1px solid var(--line);
@@ -160,25 +180,20 @@
       <h1>Lens Meter</h1>
       <p>책·인쇄물의 글자 변형으로 안경 도수를 추정합니다</p>
     </div>
+    <button id="flipBtn" class="ibtn" type="button" aria-label="자동 회전 감지 켜기">⟲</button>
     <button id="helpBtn" class="ibtn" type="button" aria-label="사용법">?</button>
   </header>
 
-  <!-- 측정 조건은 카메라↔책 200mm, 렌즈 위치 50%(각 100mm)로 고정 -->
-  <div class="card target-card">
+  <!-- 카메라↔책 거리는 '기준 잡기' 시점에 센서/카드로 자동 추정(실패 시 200mm 가정),
+       렌즈 위치는 항상 중간 50%로 둔다 -->
+  <div class="card target-card hidden">
     <div class="row one" style="margin-top:0">
       <button id="tgtBtn" class="btn" type="button">타깃 전송</button>
     </div>
   </div>
 
-  <!-- 2. 좌우 선택 -->
-  <div class="eye-sel">
-    <button id="eyeR" class="eye-btn on" type="button" data-eye="R">
-      우안 (OD)<small>Right</small><span class="done" id="doneR"></span>
-    </button>
-    <button id="eyeL" class="eye-btn" type="button" data-eye="L">
-      좌안 (OS)<small>Left</small><span class="done" id="doneL"></span>
-    </button>
-  </div>
+  <!-- 2. 안내 (탭 선택 없이 오른쪽부터 순서대로) -->
+  <div class="eye-guide" id="eyeGuide">지금 측정 중: <b>오른쪽 눈 (OD)</b></div>
 
   <!-- 3. 촬영 -->
   <div class="card">
@@ -200,6 +215,11 @@
           <line x1="150" y1="181" x2="150" y2="189" stroke="#2fe0a8" stroke-width="1" opacity=".45"/>
           <text x="6" y="179" fill="#2fe0a8" font-size="8" font-weight="600"
                 font-family="-apple-system,sans-serif" opacity=".6">0°</text>
+          <!-- 카드 정렬 가이드: 실물 카드를 이 테두리에 맞추면 카메라↔책 거리가 200mm가 된다 -->
+          <rect id="gCard" x="0" y="0" width="0" height="0" rx="6" fill="none"
+                stroke="#ffb454" stroke-width="1.3" stroke-dasharray="5 6" opacity=".7"/>
+          <text id="gCardLabel" x="150" y="0" fill="#ffb454" font-size="9" text-anchor="middle"
+                font-family="-apple-system,sans-serif" opacity=".8">카드를 여기에 맞추면 20cm</text>
         </svg>
       </div>
       <div class="empty" id="empty">
@@ -216,6 +236,21 @@
       </div>
       <button id="refBtn" class="btn" type="button" disabled>기준 잡기</button>
     </div>
+    <p class="hint" id="distInfo"></p>
+    <p class="hint" id="levelInfo"></p>
+    <div class="row one" style="margin-top:6px">
+      <button id="tiltBtn" class="btn" type="button">렌즈 기울기 재기 (폰을 렌즈 앞면에 대고)</button>
+    </div>
+    <p class="hint" id="tiltInfo">렌즈 기울기: 재지 않음 — 경사각 보정 없이 측정됩니다</p>
+    <div class="fieldrow" style="margin-top:8px">
+      <label for="devSel">내 휴대폰 기종</label>
+      <select id="devSel" style="width:auto;max-width:210px;padding:9px 10px;
+        border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--ink)"></select>
+    </div>
+    <p class="hint">기종을 고르면 노란 테두리가 <b>20cm에서 신용카드가 보이는 크기</b>로
+      그려집니다. 실물 카드를 <b>책 표지에 붙여 놓고</b> 테두리와 같은 크기로 보일
+      때까지 휴대폰을 앞뒤로 움직이면, 그 위치가
+      카메라↔책 20cm입니다.</p>
 
     <div class="live">
       <div class="cell"><span>SPH</span><strong id="lSph">—</strong></div>
@@ -258,10 +293,123 @@
 </div>
 
 <!-- 도움말 -->
+<div id="tut" class="ov hidden">
+  <div class="modal tut">
+    <div class="mh"><h2>측정 순서</h2><button id="tutX" class="ibtn" type="button">✕</button></div>
+    <div class="mb">
+
+      <div class="tutstep">
+        <div class="tutnum">1</div>
+        <div class="tutbody">
+          <b>기종 선택</b>
+          <span>아래에서 내 휴대폰 기종을 한 번 고릅니다. 화면의 노란 테두리가
+            20cm 거리에서 신용카드가 보이는 크기로 그려집니다.</span>
+        </div>
+      </div>
+
+      <div class="tutstep">
+        <div class="tutnum">2</div>
+        <div class="tutbody">
+          <b>책에 카드를 붙이고 거리 맞추기</b>
+          <span>글자가 빽빽한 책을 세워 둡니다. 실물 카드를
+            <b style="display:inline">책 표지에 붙여 놓고</b>, 화면의 노란 테두리와
+            카드 크기가 같아지도록 휴대폰을 앞뒤로 움직이세요.
+            그 위치가 <b style="display:inline">카메라↔책 20cm</b>입니다.
+            거리를 맞춘 뒤 카드는 떼어 냅니다.</span>
+          <div class="tutfig">
+            <svg viewBox="0 0 300 74" xmlns="http://www.w3.org/2000/svg">
+              <rect x="14" y="12" width="9" height="50" rx="2" fill="none" stroke="#7fd8ff" stroke-width="1.6"/>
+              <text x="18" y="70" fill="#7fd8ff" font-size="7" text-anchor="middle" font-family="sans-serif">폰</text>
+              <rect x="252" y="6" width="22" height="60" rx="2" fill="none" stroke="#cfdcec" stroke-width="1.6"/>
+              <text x="263" y="72" fill="#cfdcec" font-size="7" text-anchor="middle" font-family="sans-serif">책</text>
+              <rect x="245" y="27" width="7" height="18" rx="1.5" fill="none" stroke="#ffb454" stroke-width="1.6"/>
+              <text x="222" y="20" fill="#ffb454" font-size="7" text-anchor="middle" font-family="sans-serif">카드(표지에 부착)</text>
+              <line x1="248" y1="26" x2="234" y2="20" stroke="#ffb454" stroke-width="1"/>
+              <line x1="26" y1="37" x2="242" y2="37" stroke="#3a4a60" stroke-width="1" stroke-dasharray="4 4"/>
+              <text x="128" y="33" fill="#9fb2c8" font-size="7.5" text-anchor="middle" font-family="sans-serif">20cm</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="tutstep">
+        <div class="tutnum">3</div>
+        <div class="tutbody">
+          <b>안경 없이 ‘기준 잡기’</b>
+          <span>카드와 안경을 모두 치운 뒤 ‘기준 잡기’를 누릅니다.
+            휴대폰과 책은 이때부터 움직이지 마세요.</span>
+        </div>
+      </div>
+
+      <div class="tutstep">
+        <div class="tutnum">4</div>
+        <div class="tutbody">
+          <b>안경을 정확히 가운데에</b>
+          <span>안경을 카메라와 책의 <b style="display:inline">정확히 중간(10cm)</b>에 둡니다.
+            다리는 접어서 옆으로 두면 자리 잡기 쉽습니다. 렌즈면이 책과
+            나란해지도록(찌그러져 보이지 않게) 각도를 맞추세요.</span>
+          <div class="tutfig">
+            <svg viewBox="0 0 300 62" xmlns="http://www.w3.org/2000/svg">
+              <rect x="14" y="8" width="9" height="46" rx="2" fill="none" stroke="#7fd8ff" stroke-width="1.6"/>
+              <ellipse cx="150" cy="31" rx="9" ry="15" fill="none" stroke="#2fe0a8" stroke-width="1.6"/>
+              <text x="150" y="58" fill="#2fe0a8" font-size="7" text-anchor="middle" font-family="sans-serif">안경</text>
+              <rect x="264" y="4" width="22" height="54" rx="2" fill="none" stroke="#cfdcec" stroke-width="1.6"/>
+              <line x1="26" y1="31" x2="139" y2="31" stroke="#3a4a60" stroke-width="1" stroke-dasharray="4 4"/>
+              <line x1="161" y1="31" x2="260" y2="31" stroke="#3a4a60" stroke-width="1" stroke-dasharray="4 4"/>
+              <text x="82" y="24" fill="#9fb2c8" font-size="7.5" text-anchor="middle" font-family="sans-serif">10cm</text>
+              <text x="211" y="24" fill="#9fb2c8" font-size="7.5" text-anchor="middle" font-family="sans-serif">10cm</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="tutstep">
+        <div class="tutnum">5</div>
+        <div class="tutbody">
+          <b>화면이 시키는 렌즈를 원에 맞추기</b>
+          <span>안내에 따라 <b style="display:inline">화면 오른쪽 렌즈 → 화면 왼쪽 렌즈</b> 순으로
+            점선 원에 맞춥니다. 초록 안내가 뜨면 그대로 유지만 하세요. 자동으로 저장됩니다.</span>
+        </div>
+      </div>
+
+      <div class="tutstep">
+        <div class="tutnum">6</div>
+        <div class="tutbody">
+          <b>안경을 앞뒤로 뒤집어 한 번 더</b>
+          <span>안내가 뜨면 안경을 <b style="display:inline">앞뒤로 뒤집어</b> 같은 자리에 놓고,
+            다시 화면 오른쪽 → 왼쪽 순으로 측정합니다.</span>
+          <div class="tutflip">안경은 렌즈면이 원래 조금 기울어지게 만들어져 있어서,
+            그대로만 재면 실제로 없는 난시가 섞일 수 있습니다. 뒤집어서 한 번 더 재
+            평균을 내면 그 기울기 오차가 상당 부분 상쇄됩니다. 두 값의 차이는
+            결과의 <b style="display:inline">신뢰도</b>로 표시됩니다.</div>
+        </div>
+      </div>
+
+      <div class="tutstep">
+        <div class="tutnum">7</div>
+        <div class="tutbody">
+          <b>결과 확인</b>
+          <span>네 번의 측정이 끝나면 좌·우 도수와 신뢰도가 함께 표시됩니다.
+            신뢰도가 낮게 나오면 안경 각도와 중간 위치를 다시 맞추고 재측정하세요.</span>
+        </div>
+      </div>
+
+      <p class="hint" style="margin-top:14px">이 앱은 참고용 추정 도구이며 안경원의 렌즈미터를 대체하지 않습니다.</p>
+    </div>
+    <div class="tutfoot">
+      <button id="tutSkip" class="btn" type="button">건너뛰기</button>
+      <button id="tutGo" class="btn go" type="button">시작하기</button>
+    </div>
+  </div>
+</div>
+
 <div id="help" class="ov hidden">
   <div class="modal">
     <div class="mh"><h2>사용법</h2><button id="helpClose" class="ibtn" type="button">✕</button></div>
     <div class="mb">
+      <div class="row one" style="margin-top:0">
+        <button id="tutOpen" class="btn" type="button">측정 순서 다시 보기</button>
+      </div>
       <h3>준비</h3>
       <ol>
         <li>작은 글자가 많은 책·신문·무광 인쇄물을 <b>평평하게</b> 놓고 화면 전체에 글자가 보이게 합니다.</li>
@@ -269,6 +417,32 @@
         <li>카메라가 자동으로 켜지면 <b>안경을 두지 않은 상태</b>로 ‘기준 잡기’를 누릅니다.</li>
         <li>기준이 완료되면 휴대폰과 책을 움직이지 말고, 안경을 정확히 중간인 <b>카메라에서 100mm</b> 위치에 수평으로 둡니다.</li>
       </ol>
+      <h3>폰을 뒤집어서 쓰기</h3>
+      <p>안경을 책 앞 받침 위에 놓고 찍을 때, 폰을 세운 채로는 안경이 화면 아래로
+      벗어나기 쉽습니다. 안드로이드 등 대부분의 기기는 <b>페이지를 열면 바로</b>
+      자동 회전 감지가 켜집니다. 아이폰(iOS)은 보안 정책상 헤더의 ⟲ 버튼을
+      <b>한 번 눌러 동작 센서 권한을 허용</b>해야 켜집니다. 켜진 뒤로는
+      <b>휴대폰을 실제로 뒤집을 때마다 화면 글씨·버튼(카메라 화면 위 안내
+      문구 포함)이 자동으로 180도 전환</b>되고, 카메라 원본 영상만 그대로
+      유지됩니다 — 도수 계산에는 영향이 없습니다. 센서를 지원하지 않는
+      기기에서는 버튼이 수동 전환으로 동작합니다.</p>
+      <p><b>휴대폰 수평 표시</b> — 같은 센서 권한으로, 안경을 눕혀서 스탠드에
+      올려놓고 위에서 촬영하는 방식일 때 폰이 평평한지를 실시간으로
+      보여줍니다(‘측정 거리’ 표시 아래). 폰(또는 촬영 리그)이 기울면 렌즈면이
+      카메라와 평행하지 않게 되어, <b>실제로 없는 난시(CYL)가 계산에 섞여
+      들어갈 수 있습니다</b> — 렌즈를 비스듬히 보면 원이 타원으로 찌그러져
+      보이는 것과 같은 원리입니다. 다만 이건 사진 한 장의 수학적 한계라
+      완전히 자동으로 걸러낼 수는 없고, 수평 표시로 그 위험을 줄이는
+      정도입니다. 안경테를 손으로 든 상태에서 잰 값과 눕혀서 잰 값이 많이
+      다르면, 눕힌 자세가 기울었을 가능성을 의심해 보세요.</p>
+      <p><b>렌즈 기울기 보정(경사각)</b> — 안경다리가 평평해도 렌즈면 자체는
+      원래 앞으로 몇 도 기울게(경사각) 설계돼 있어서, 눕혀 놓으면 렌즈면이
+      기울어진 채로 있기 쉽습니다. 실제로 측정할 자세 그대로 둔 상태에서
+      <b>폰 화면을 렌즈 앞면에 살짝 대고 ‘렌즈 기울기 재기’</b>를 누르면
+      그 순간의 기울기를 저장합니다. 이후 촬영 중 폰의 실시간 기울기와
+      비교해 그 차이만큼 원근 압축을 역산해 보정합니다. 다만 이건 기하학적
+      근사 보정이라 완벽하지 않고, 곡면이 큰 랩어라운드 렌즈에는 잘
+      맞지 않을 수 있습니다. 폰 방향은 잴 때와 촬영할 때 같아야 합니다.</p>
       <h3>측정</h3>
       <ol>
         <li>우안/좌안을 선택합니다.</li>
@@ -276,10 +450,23 @@
         <li>초록 안내가 뜨도록 그대로 유지하면 안정된 측정 5회 후 <b>자동 저장</b>됩니다.</li>
         <li>반대쪽 눈으로 반복합니다.</li>
       </ol>
+      <h3>거리 맞추기 (카드 정렬 가이드)</h3>
+      <p><b>먼저 ‘내 휴대폰 기종’을 한 번 선택하세요.</b> 그러면 <b>20cm 거리에서
+      신용카드가 보이는 크기</b>의 노란 사각형 테두리가 그려집니다. 폰을 세워서
+      드는 기본 자세에서는 이 테두리가 렌즈 원 아래쪽에 따로 나타나고, 폰을
+      뒤집은 상태(눕혀 찍기)에서는 카드와 안경이 같은 자리에 놓이므로
+      <b>렌즈를 맞추는 원 안에 겹쳐서</b> 나타납니다. 실물 카드를 <b>책 표지에
+      붙여 놓고</b> 테두리와 같은 크기로 보일 때까지 휴대폰을 앞뒤로 움직이면,
+      그 위치가 카메라↔책 20cm입니다. 카드는 반드시 책과 같은 면에 있어야
+      하며, 거리를 맞춘 뒤에는 떼어 냅니다. 자를 쓸 필요가 없습니다.</p>
+      <p>기종별 초점거리는 제조사 공개 사양을 근거로 한 근삿값이고, 브라우저가
+      실제로 잡는 화각이 조금 다를 수 있어 약간의 오차가 남을 수 있습니다.
+      기기가 초점 센서를 지원하면 그 값이 우선 사용되며, 기준을 잡은 뒤에는
+      배경 배율 변화로 거리를 계속 추적합니다.</p>
       <h3>정확도를 올리려면</h3>
       <ul>
-        <li><b>거리를 정확히</b> — 가장 큰 오차원입니다. 기본 측정 거리는 200mm이며
-            고정 높이 거치대로 ±5mm 안에 맞추는 것을 권장합니다.</li>
+        <li><b>거리를 정확히</b> — 가장 큰 오차원입니다. 자동 인식이 실패해 기본값
+            200mm로 가정된 경우, 고정 높이 거치대로 ±5mm 안에 맞추는 것을 권장합니다.</li>
         <li><b>안경테를 초록 수평선에 맞추세요</b> — AXIS는 이 선을 0°로 잡습니다. 테가 기울면 그만큼 축이 틀립니다.</li>
         <li>휴대폰을 책 표면과 <b>평행</b>하게. 많이 기울면 프레임을 자동으로 버립니다.</li>
         <li>렌즈 반사광을 피하고, 파란 원의 안쪽과 바깥쪽 모두에 작은 글자가 보여야 합니다.</li>
@@ -373,22 +560,117 @@ function addAutoSample(vec,skew){
 }
 
 /* ---------- 광학 ---------- */
-/* 자동 거리 보정값: 기준 촬영 당시의 실제 카메라↔타깃 거리(mm) */
+/* 거리: 기기가 지원하면 센서(focusDistance)로 자동 인식하고, 아니면 200mm로 가정한다.
+   그 가정이 맞도록 화면에 '카드 정렬 가이드' 테두리를 그린다. 테두리 크기는
+   사용자가 고른 기기 모델의 후면 메인 카메라 초점거리(35mm 환산)로 계산하므로
+   자를 쓸 필요가 없다. 기준을 잡은 뒤에는 배경 배율 변화로 거리 변화를 추적한다
+   (lastD = CAL.D / scale, analyzeFrame 참고). */
 var CAL=(function(){
-  try{ var v=JSON.parse(localStorage.getItem("lmDotCalV2")||"null");
-       return (v&&v.D)?v:{D:null}; }catch(e){ return {D:null}; }
+  try{ var v=JSON.parse(localStorage.getItem("lmDotCalV3")||"null");
+       return v||{dev:""}; }catch(e){ return {dev:""}; }
 })();
+var CARD_WIDTH_MM=85.60;        // ISO/IEC 7810 ID-1 표준 카드(신용카드 등) 폭
+var CARD_ASPECT=1.586;          // 카드 가로:세로 비율
+var GUIDE_TARGET_MM=200;        // 가이드 테두리가 나타내는 목표 거리
+var FRAME35_DIAG_MM=43.267;     // 35mm 판형 대각선 — 환산 초점거리의 기준
+var DIST_MIN_MM=120, DIST_MAX_MM=600;
 var AUTO=false;
 var lastD=200;
+var distSource="default";       // "sensor" | "default"
 var TARGET_ONLY=new URLSearchParams(location.search).get("target")==="1";
 
+/* 후면 메인(광각) 카메라의 35mm 환산 초점거리(mm). 공개된 제조사 사양 기준의
+   근사값이며, 브라우저가 실제로 잡는 화각과 다를 수 있어 −/+ 미세조정을 함께 둔다. */
+var DEVICES=[
+  {id:"",       name:"기기를 선택하세요",                f:0},
+  {id:"ip_pro", name:"iPhone 14/15/16 Pro·Pro Max",     f:24},
+  {id:"ip_std", name:"iPhone 14/15/16 · 11/12/13 전체", f:26},
+  {id:"ip_old", name:"iPhone X / XS / XR",              f:26},
+  {id:"ip_se",  name:"iPhone SE (2·3세대)",              f:28},
+  {id:"gal_s",  name:"Galaxy S 시리즈 (S22~S25)",        f:24},
+  {id:"gal_a",  name:"Galaxy A / 기타 갤럭시",            f:26},
+  {id:"pixel",  name:"Google Pixel (7~9)",              f:25},
+  {id:"etc",    name:"기타 안드로이드",                   f:26}
+];
+function deviceFocalEq(){
+  for(var i=0;i<DEVICES.length;i++) if(DEVICES[i].id===CAL.dev) return DEVICES[i].f;
+  return 0;
+}
+
 function totalDistance(){
-  return 200;
+  return lastD;
 }
 function geom(){
-  return {a:100,b:100,e:50,eM:.05};
+  var D=lastD, a=D/2, b=D/2, e=a*b/(a+b);
+  return {a:a,b:b,e:e,eM:e/1000};
 }
-function syncGeom(){}
+function syncGeom(){ renderDistUI(); }
+
+/* 카메라 API의 focusDistance(지원 기기에서만) 로 절대 거리를 읽어본다.
+   대부분의 아이폰 사파리·다수 기기는 지원하지 않으므로, 실패하면 조용히 null. */
+function readSensorDistanceMM(){
+  try{
+    var track=S.focusTrack;
+    if(!track||!track.getSettings) return null;
+    var s=track.getSettings();
+    if(typeof s.focusDistance!=="number"||!isFinite(s.focusDistance)||s.focusDistance<=0) return null;
+    var mm=s.focusDistance*1000;                 /* 스펙 단위: 미터 */
+    if(mm<DIST_MIN_MM||mm>DIST_MAX_MM) return null;
+    return mm;
+  }catch(e){ return null; }
+}
+
+/* 거리를 정한다: 센서 → (사용자가 카드를 가이드에 맞춘) 기본값 200mm 순. */
+function determineDistanceMM(){
+  var sensorMM=readSensorDistanceMM();
+  if(sensorMM) return {mm:sensorMM,src:"sensor"};
+  return {mm:GUIDE_TARGET_MM,src:"default"};
+}
+
+/* ---------- 카드 정렬 가이드 ----------
+   선택한 기기의 초점거리로 '200mm에서 카드가 화면에 보이는 크기'를 계산해 테두리로
+   그린다. 영상이 object-fit:cover로 잘려 표시되는 것까지 반영해야 실제 화면 크기와
+   맞으므로, 비디오 원본 해상도와 stage의 실제 표시 크기를 함께 사용한다. */
+function guideWidthSvg(){
+  var fEq=deviceFocalEq(); if(!fEq) return 0;
+  var v=$("vid"), st=$("stage");
+  var vw=v.videoWidth, vh=v.videoHeight;
+  var sw=st.clientWidth, sh=st.clientHeight;
+  if(!vw||!vh||!sw||!sh) return 0;
+  var fPx=fEq*Math.hypot(vw,vh)/FRAME35_DIAG_MM;      /* 비디오 픽셀 단위 초점거리 */
+  var cardVideoPx=fPx*CARD_WIDTH_MM/GUIDE_TARGET_MM;  /* 200mm에서의 카드 폭(비디오 px) */
+  var cover=Math.max(sw/vw,sh/vh);                    /* object-fit:cover 배율 */
+  return cardVideoPx*cover*(300/sw);                  /* svg viewBox(300폭) 단위 */
+}
+function renderCardGuide(){
+  var w=guideWidthSvg(), h=w/CARD_ASPECT;
+  var r=$("gCard"), lb=$("gCardLabel");
+  if(!w){ if(r) r.setAttribute("width",0); if(lb) lb.setAttribute("opacity",0); return; }
+  if(lb) lb.setAttribute("opacity",".8");
+  var flipped=document.body.classList.contains("flipped");
+  /* 세워서 들 때(기본)는 원 아래 별도 박스, 눕혀서 위에서 찍을 때(뒤집기)는
+     카드와 안경이 같은 자리에 오므로 렌즈 원과 같은 중심에 겹쳐 그린다. */
+  var cx=150, cy=flipped?185:350, x=cx-w/2, y=cy-h/2;
+  if(r){
+    r.setAttribute("x",x);r.setAttribute("y",y);
+    r.setAttribute("width",Math.max(2,w));r.setAttribute("height",Math.max(2,h));
+  }
+  if(lb) lb.setAttribute("y",Math.max(14,y-8));
+}
+function setDevice(id){
+  CAL.dev=id; saveCal(); renderCardGuide(); renderDistUI();
+}
+function saveCal(){
+  try{localStorage.setItem("lmDotCalV3",JSON.stringify({dev:CAL.dev}));}catch(e){}
+}
+
+
+function renderDistUI(){
+  var el=$("distInfo"); if(!el) return;
+  if(!S.reference){ el.textContent=""; return; }
+  var label=distSource==="sensor"?"센서로 자동 인식됨":"200mm 가정 (카드를 가이드에 맞췄다면 정확)";
+  el.textContent="측정 거리 약 "+Math.round(lastD)+"mm ("+label+")";
+}
 
 function normAxis(d){var v=d%180; if(v<0)v+=180; return v;}
 function rxToVec(s,c,ax){var a=ax*Math.PI/180;
@@ -607,12 +889,18 @@ function principal(A){
 /* 배율 행렬을 실제 도수 벡터로 변환한다.
    무안경 기준 행렬을 제거한 뒤에만 호출해야 카메라 왜곡이 도수로 섞이지 않는다. */
 function matrixToMeasurement(A){
-  var pr=principal(A);
-  if(pr.m1<.35||pr.m1>2.6||pr.m2<.35||pr.m2>2.6)
+  var prRaw=principal(A);
+  if(prRaw.m1<.35||prRaw.m1>2.6||prRaw.m2<.35||prRaw.m2>2.6)
     return {ok:false,why:"range"};
 
   var g=geom();
   if(g.eM<.03) return {ok:false,why:"tooClose"};
+
+  /* 보정 전 원본 신호로 먼저 판단한다: 렌즈가 없을 때(=원본 신호가 이미 잡음 수준)
+     기울기 보정이 그 잡음을 증폭시켜 가짜 렌즈로 오인하는 일이 없도록 막는다. */
+  var rawSignal=Math.max(Math.abs((1-1/prRaw.m1)/g.eM),Math.abs((1-1/prRaw.m2)/g.eM));
+  var A2=(rawSignal>=MIN_LENS_POWER)?applyLensTiltCorrection(A):A;
+  var pr=principal(A2);
   var F1=(1-1/pr.m1)/g.eM;
   var F2=(1-1/pr.m2)/g.eM;
 
@@ -623,6 +911,25 @@ function matrixToMeasurement(A){
 
   return {ok:true,vec:rxToVec(sph,cyl,axisDeg),
           signal:Math.max(Math.abs(F1),Math.abs(F2))};
+}
+
+/* ---------- 렌즈 기울기(경사각) 보정 ----------
+   안경을 눕혀 놓았을 때 렌즈면이 카메라와 평행하지 않으면, 원근 압축(foreshortening)
+   때문에 실제로 없는 원주(난시)가 섞여 들어온다. 렌즈 앞면에 폰을 대서 잰 기울기
+   (lensTiltRef)와, 촬영 중 실시간 기울기(liveBeta/liveGamma)의 '차이'만큼 압축된
+   방향을 역으로 늘려 상쇄한다. 두 축(앞뒤 tilt=세로 압축, 좌우 tilt=가로 압축)을
+   독립 근사로 다뤄 코사인 역보정을 적용하는 근사식이며, 완벽한 광학 모델은 아니다.
+   보정 폭은 최대 ~15%로 강하게 제한한다 — 잡음 증폭으로 인한 오탐을 막기 위함이며,
+   기울기 차이가 비정상적으로 크면(재보정 필요 가능성) 아예 보정을 걸지 않는다. */
+var lensTiltRef=null, liveBeta=null, liveGamma=null;
+function applyLensTiltCorrection(A){
+  if(!lensTiltRef||liveBeta==null||liveGamma==null) return A;
+  var dBeta=(liveBeta-lensTiltRef.beta)*Math.PI/180;
+  var dGamma=(liveGamma-lensTiltRef.gamma)*Math.PI/180;
+  if(Math.abs(dBeta)>25*Math.PI/180||Math.abs(dGamma)>25*Math.PI/180) return A; /* 재보정 필요, 적용 안 함 */
+  var kx=1/Math.max(.87,Math.cos(dGamma));   /* 좌우 기울기 차 → 가로 압축 보정, 최대 약 1.15배 */
+  var ky=1/Math.max(.87,Math.cos(dBeta));    /* 앞뒤 기울기 차 → 세로 압축 보정, 최대 약 1.15배 */
+  return [A[0]*kx,A[1]*kx,A[2]*ky,A[3]*ky];
 }
 
 /* ---------- 한 프레임 분석 ---------- */
@@ -920,7 +1227,7 @@ analyzeFrame=function(imgData,W,H){
   if(dot>.55)return {ok:false,why:"tilt",message:"기울기 "+Math.round(dot*100)+
     "% — 작은 흔들림은 보정했지만 휴대폰을 조금 더 수평으로 해주세요"};
   if(scale<.78||scale>1.28)return {ok:false,why:"moved"};
-  if(AUTO&&CAL.D){lastD=CAL.D/scale;if(lastD<120||lastD>2000)return {ok:false,why:"badDist"};}
+  if(AUTO&&CAL.D){lastD=CAL.D/scale;if(lastD<DIST_MIN_MM||lastD>DIST_MAX_MM)return {ok:false,why:"badDist"};}
   var ccx=W*.5,ccy=H*.5,mx=C.A[0]*ccx+C.A[1]*ccy+C.t[0]-ccx,
       my=C.A[2]*ccx+C.A[3]*ccy+C.t[1]-ccy;
   return {ok:true,A:L,score:Math.min(C.n,inside.n),skew:skew,
@@ -999,10 +1306,18 @@ function finishReference(){
                sharpOut:edgeSharpness(avg,W,H,false),
                invA:[1,0,0,1],outPitchPx:1};
   S.motion=null;
-  lastD=200;
+
+  /* 거리: 센서 → 기본값(200mm, 카드 정렬 가이드로 보장) 순으로 정한다.
+     이후에는 배경 배율 변화로 거리 변화를 계속 추적한다(analyzeFrame의 scale 참고). */
+  var dist=determineDistanceMM();
+  lastD=dist.mm; distSource=dist.src; CAL.D=dist.mm; AUTO=true;
+  renderDistUI();
+
   S.samples=[]; S.noLens=0; setReferenceUI(); renderLive(false);
   setBanner("기준 완료 — 안경렌즈를 원 안에 넣으세요","ok");
-  toast("무안경 책 배경 기준이 저장되었습니다.");
+  var distMsg=distSource==="sensor"?"카메라 센서로 거리 "+Math.round(lastD)+"mm 인식":
+              "200mm로 가정합니다 (카드를 노란 가이드 테두리에 맞췄다면 정확해요)";
+  toast("무안경 책 배경 기준이 저장되었습니다. "+distMsg);
 }
 
 /* ---------- 카메라 자동초점 ---------- */
@@ -1060,6 +1375,8 @@ async function startCam(){
     resetAutoSequence();
     S.samples=[]; S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false;
     S.last=null; S.bad=0; setReferenceUI(); renderLive();
+    AUTO=false; lastD=200; distSource="default"; renderDistUI();
+    renderCardGuide();
     setBanner("먼저 안경 없이 ‘기준 잡기’를 눌러 주세요","warn");
     clearInterval(S.timer);
     S.timer=setInterval(tick,320);
@@ -1076,6 +1393,8 @@ function stopCam(){
   $("empty").classList.remove("hidden");
   S.focusTrack=null;S.focusModes=[];S.focusBusy=false;
   S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false; S.last=null;
+  AUTO=false; lastD=200; distSource="default";
+  var di=$("distInfo"); if(di) di.textContent="";
   setReferenceUI();
 }
 
@@ -1287,16 +1606,22 @@ function renderResults(){
   });
 }
 function renderEyeTabs(){
-  $("doneR").textContent=S.results.R?"✓ 저장됨":"";
-  $("doneL").textContent=S.results.L?"✓ 저장됨":"";
+  var el=$("eyeGuide");
+  if(!el) return;
+  if(S.results.R&&S.results.L){
+    el.classList.add("done");
+    el.innerHTML="측정 완료 ✓ 오른쪽·왼쪽 모두 저장됨";
+  }else{
+    el.classList.remove("done");
+    var isRight=S.eye==="R";
+    var label=isRight?"오른쪽 눈 (OD)":"왼쪽 눈 (OS)";
+    var already=isRight?S.results.R:S.results.L;
+    el.innerHTML="지금 측정 중: <b>"+label+"</b>"+(already?" (다시 측정)":"");
+  }
 }
 function setEye(e){
   resetAutoSequence();
   S.eye=e; S.samples=[];
-  $("eyeR").classList.toggle("on",e==="R");
-  $("eyeL").classList.toggle("on",e==="L");
-  /* 가이드 원을 좌/우로 살짝 이동 */
-  $("gCircle").setAttribute("cx", e==="R"?"150":"150");
   renderLive();
 }
 
@@ -1379,9 +1704,16 @@ function demo(){
 }
 
 /* ---------- 이벤트 ---------- */
-$("eyeR").addEventListener("click",function(){setEye("R");});
-$("eyeL").addEventListener("click",function(){setEye("L");});
 $("refBtn").addEventListener("click",startReference);
+(function(){
+  var sel=$("devSel");
+  DEVICES.forEach(function(d){
+    var o=document.createElement("option");
+    o.value=d.id; o.textContent=d.name; sel.appendChild(o);
+  });
+  sel.value=CAL.dev||"";
+  sel.addEventListener("change",function(){setDevice(sel.value);});
+})();
 $("saveBtn").addEventListener("click",function(){saveEye(false);});
 $("resetBtn").addEventListener("click",function(){
   resetAutoSequence();
@@ -1399,13 +1731,121 @@ $("tgtFs").addEventListener("click",async function(){
        setTimeout(drawTarget,120);
   }catch(e){toast("전체화면을 사용할 수 없습니다.");}
 });
+(function(){
+  var sensorOn=false;
+  function applyFlip(on){
+    document.body.classList.toggle("flipped",on);
+    $("flipBtn").classList.toggle("on",on);
+    renderCardGuide();
+  }
+  function motionHandler(e){
+    var g=e.accelerationIncludingGravity;
+    if(!g||g.y==null) return;
+    var on=g.y>4;
+    if(document.body.classList.contains("flipped")!==on) applyFlip(on);
+  }
+  function renderLevel(beta,gamma){
+    var el=$("levelInfo"); if(!el) return;
+    var tilt=Math.hypot(beta,gamma);
+    var msg, color;
+    if(tilt<3){msg="✓ 평평함 ("+tilt.toFixed(1)+"°) — 눕혀 찍기에 좋은 상태";color="#a9ffe4";}
+    else if(tilt<8){msg="△ 약간 기울어짐 ("+tilt.toFixed(1)+"°) — 가짜 난시가 섞일 수 있어요";color="#ffd6a2";}
+    else{msg="⚠ 많이 기울어짐 ("+tilt.toFixed(1)+"°) — 폰(또는 스탠드)을 평평하게";color="#ffb0b8";}
+    el.textContent="휴대폰 수평: "+msg;
+    el.style.color=color;
+  }
+  function orientHandler(e){
+    if(e.beta==null||e.gamma==null) return;
+    liveBeta=e.beta; liveGamma=e.gamma;
+    renderLevel(e.beta,e.gamma);
+  }
+  function bindOrientation(){
+    if(typeof DeviceOrientationEvent==="undefined") return;
+    if(typeof DeviceOrientationEvent.requestPermission==="function"){
+      DeviceOrientationEvent.requestPermission().then(function(r){
+        if(r==="granted") window.addEventListener("deviceorientation",orientHandler);
+      }).catch(function(){});
+    }else{
+      window.addEventListener("deviceorientation",orientHandler);
+    }
+  }
+  function bindSensor(){
+    window.addEventListener("devicemotion",motionHandler);
+    bindOrientation();
+    sensorOn=true;
+    $("flipBtn").textContent="⟲✓";
+    $("flipBtn").setAttribute("aria-label","자동 회전 감지 켜짐");
+    toast("자동 감지 켜짐 — 폰을 뒤집으면 화면이 자동 전환되고, 수평 상태도 표시됩니다.");
+  }
+  function manualToggle(){
+    applyFlip(!document.body.classList.contains("flipped"));
+  }
+  $("flipBtn").addEventListener("click",function(){
+    if(sensorOn){ manualToggle(); return; }              /* 센서 켠 뒤엔 수동 임시 반전만 허용 */
+    if(typeof DeviceMotionEvent!=="undefined"&&typeof DeviceMotionEvent.requestPermission==="function"){
+      DeviceMotionEvent.requestPermission().then(function(r){
+        if(r==="granted") bindSensor();
+        else toast("동작 센서 권한이 필요합니다. 설정에서 허용한 뒤 다시 눌러주세요.");
+      }).catch(function(){ toast("센서를 쓸 수 없어 수동 버튼으로 동작합니다."); manualToggle(); });
+    }else if(typeof DeviceMotionEvent!=="undefined"){
+      bindSensor();
+    }else{
+      manualToggle();
+    }
+  });
+  /* 권한 프롬프트가 필요 없는 브라우저(대부분의 안드로이드 등)는 버튼을
+     누르지 않아도 페이지를 열자마자 바로 자동 회전 감지를 켠다.
+     iOS Safari처럼 명시적 사용자 제스처가 필요한 경우에만 버튼 클릭을 기다린다. */
+  if(typeof DeviceMotionEvent!=="undefined"&&typeof DeviceMotionEvent.requestPermission!=="function"){
+    bindSensor();
+  }
+  function captureLensTilt(){
+    if(liveBeta==null||liveGamma==null){
+      toast("센서 값을 아직 못 읽었습니다. 잠시 후 다시 누르거나 ⟲ 버튼으로 센서를 먼저 켜주세요.");
+      return;
+    }
+    lensTiltRef={beta:liveBeta,gamma:liveGamma};
+    $("tiltInfo").textContent="렌즈 기울기 저장됨 (β"+liveBeta.toFixed(1)+"° γ"+liveGamma.toFixed(1)+"°) — 경사각 보정 적용 중";
+    toast("렌즈 기울기를 저장했습니다. 이제 측정값에 경사각 보정이 적용됩니다.");
+  }
+  $("tiltBtn").addEventListener("click",function(){
+    if(typeof DeviceOrientationEvent!=="undefined"&&typeof DeviceOrientationEvent.requestPermission==="function"){
+      DeviceOrientationEvent.requestPermission().then(function(r){
+        if(r==="granted"){
+          if(!sensorOn) window.addEventListener("deviceorientation",orientHandler);
+          setTimeout(captureLensTilt,150);   /* 첫 이벤트가 들어올 시간을 준다 */
+        }else toast("동작 센서 권한이 필요합니다.");
+      }).catch(function(){ toast("센서를 사용할 수 없습니다."); });
+    }else{
+      captureLensTilt();
+    }
+  });
+})();
 $("helpBtn").addEventListener("click",function(){$("help").classList.remove("hidden");});
 $("helpClose").addEventListener("click",function(){$("help").classList.add("hidden");});
+(function(){
+  function closeTut(){
+    $("tut").classList.add("hidden");
+    try{localStorage.setItem("lmTutSeen","1");}catch(e){}
+  }
+  $("tutX").addEventListener("click",closeTut);
+  $("tutSkip").addEventListener("click",closeTut);
+  $("tutGo").addEventListener("click",closeTut);
+  $("tut").addEventListener("click",function(e){if(e.target===$("tut"))closeTut();});
+  $("tutOpen").addEventListener("click",function(){
+    $("help").classList.add("hidden");
+    $("tut").classList.remove("hidden");
+  });
+  var seen=false;
+  try{ seen=localStorage.getItem("lmTutSeen")==="1"; }catch(e){}
+  if(!seen&&!TARGET_ONLY) $("tut").classList.remove("hidden");
+})();
 $("help").addEventListener("click",function(e){if(e.target===$("help"))$("help").classList.add("hidden");});
 window.addEventListener("resize",function(){
-  if(!$("tgtView").classList.contains("hidden")) drawTarget();});
+  if(!$("tgtView").classList.contains("hidden")) drawTarget();
+  renderCardGuide();});
 
-syncGeom(); renderResults(); renderEyeTabs(); setReferenceUI(); renderLive();
+syncGeom(); renderResults(); renderEyeTabs(); setReferenceUI(); renderLive(); renderCardGuide();
 if(TARGET_ONLY){
   document.querySelector(".wrap").classList.add("hidden");
   openTarget();
