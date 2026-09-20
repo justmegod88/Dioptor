@@ -279,7 +279,7 @@ header p{color:#d7f3ff;font-size:.78rem;margin-top:4px}
     </div>
     <div class="meterbar"><i id="mFill"></i></div>
     <div class="meterrow"><span id="mLeft">유효 스캔 0</span><span id="mRight">—</span></div>
-    <div id="fastStat" class="fastStat">FAST PRECISION · 좋은 프레임 3개 합의</div>
+    <div id="fastStat" class="fastStat">BALANCED PRECISION · 좋은 프레임 4개 합의</div>
 
     <div class="row">
       <button id="resetBtn" class="btn" type="button">스캔 초기화</button>
@@ -387,12 +387,13 @@ var S={
 };
 var MIN_LENS_POWER=.30;  // 이보다 작은 변화는 무안경/촬영 잡음으로 취급
 var REF_SAMPLE_TARGET=5; // 기준 영상은 기존 235와 동일하게 유지
-var AUTO_SAVE_SAMPLES=3; // 최근 프레임 중 서로 맞는 3개만 있으면 저장
-var AUTO_SAVE_WINDOW=8;  // 흔들린 프레임은 버리고 최근 좋은 후보를 이 창 안에서 찾는다
-var AUTO_SAVE_MAX_SKEW=.45;
-var AUTO_SAVE_MAX_SPREAD=.42;
-var AUTO_SAVE_CLUSTER_STEP=.72;
-var AUTO_SAVE_REFINE_STEP=.56;
+var AUTO_SAVE_SAMPLES=5; // 정확도 강화: 최근 프레임 중 좋은 5개 합의
+var AUTO_SAVE_WINDOW=12; // 최근 12프레임에서 좋은 후보만 사용
+var AUTO_SAVE_MIN_SPAN=620; // 최소 약 0.6초 이상 같은 값이 유지되어야 저장(ms)
+var AUTO_SAVE_MAX_SKEW=.38;
+var AUTO_SAVE_MAX_SPREAD=.27;
+var AUTO_SAVE_CLUSTER_STEP=.48;
+var AUTO_SAVE_REFINE_STEP=.36;
 var AUTO_SAVE_SWITCH_DELAY=2200; // 반대쪽 렌즈로 옮길 시간
 
 function toast(m){var t=$("toast");t.textContent=m;t.classList.add("on");
@@ -413,7 +414,7 @@ function vecStep(a,b){
   return Math.abs(a.M-b.M)+Math.abs(a.J0-b.J0)+Math.abs(a.J45-b.J45);
 }
 
-/* ---------- FAST PRECISION: 최근 8프레임 중 서로 맞는 3프레임 합의 ---------- */
+/* ---------- ACCURACY PLUS: 최근 12프레임 중 서로 맞는 좋은 5프레임 합의 ---------- */
 function consensusCluster(list){
   var valid=(list||[]).filter(function(v){return isFinite(v._skew)&&v._skew<=AUTO_SAVE_MAX_SKEW;});
   if(!valid.length)return {items:[],agg:null};
@@ -435,15 +436,23 @@ function autoSaveState(){
   var axis=c.items.length?axisConsensusFromSamples(c.items):null;
   var rx=c.agg?vecToRx(c.agg.vec):null;
   var axisNeeded=!!(rx&&Math.abs(rx.cyl)>=.50);
-  var axisReady=!axisNeeded||(axis&&axis.ok&&axis.spread<=9.5);
+  var axisLimit=rx&&Math.abs(rx.cyl)>=1.00?5.5:7.0;
+  var axisReady=!axisNeeded||(axis&&axis.ok&&axis.spread<=axisLimit);
+  var span=0;
+  if(c.items.length>=2){
+    var ts=c.items.map(function(v){return v._ts||0;}).filter(Boolean).sort(function(a,b){return a-b;});
+    if(ts.length>=2)span=ts[ts.length-1]-ts[0];
+  }
   return {count:c.items.length,total:S.autoSamples.length,required:AUTO_SAVE_SAMPLES,
-    agg:c.agg,items:c.items,axis:axis,
-    ready:c.items.length>=AUTO_SAVE_SAMPLES&&c.agg&&c.agg.spread<=AUTO_SAVE_MAX_SPREAD&&axisReady};
+    agg:c.agg,items:c.items,axis:axis,span:span,
+    ready:c.items.length>=AUTO_SAVE_SAMPLES&&c.agg&&c.agg.spread<=AUTO_SAVE_MAX_SPREAD&&
+      axisReady&&span>=AUTO_SAVE_MIN_SPAN};
 }
 function addAutoSample(vec,skew){
   /* 흔들린 한 프레임 때문에 누적값을 지우지 않는다. 그 프레임만 건너뛴다. */
   if(!isFinite(skew)||skew>AUTO_SAVE_MAX_SKEW)return false;
   vec._skew=skew;
+  vec._ts=Date.now();
   S.autoSamples.push(vec);
   if(S.autoSamples.length>AUTO_SAVE_WINDOW)S.autoSamples.shift();
   return true;
@@ -1399,14 +1408,14 @@ function setBanner(msg,cls){
 
 function renderLive(gotOne){
   var n=S.samples.length,auto=autoSaveState();
-  $("mLeft").textContent="유효 스캔 "+n+" · 합의 "+auto.count+"/3";
+  $("mLeft").textContent="유효 스캔 "+n+" · 합의 "+auto.count+"/"+AUTO_SAVE_SAMPLES;
   var baseList=auto.agg&&auto.items.length>=2?auto.items:S.samples.slice(-8);
   var agg=(auto.agg&&auto.items.length>=2)?auto.agg:robustVec(baseList);
   if(!agg||baseList.length<2){
     cancelAutoSave();
     $("lSph").textContent="—";$("lCyl").textContent="—";$("lAxis").textContent="—";
     $("mFill").style.width="0%";$("mRight").textContent="—";$("saveBtn").disabled=true;
-    $("fastStat").textContent="FAST PRECISION · 좋은 프레임 3개 합의";
+    $("fastStat").textContent="ACCURACY PLUS · 좋은 프레임 5개 합의";
     if(gotOne)setBanner("측정 중… 렌즈만 잠깐 유지해 주세요","warn");
     return;
   }
@@ -1423,9 +1432,9 @@ function renderLive(gotOne){
   $("lSph").textContent=fmtP(q25(rx.sph));$("lCyl").textContent=fmtP(q25(rx.cyl));
   $("lAxis").textContent=Math.abs(rx.cyl)>=.25?Math.round(rx.axis)+"°":"—";
   var conf=Math.max(0,Math.min(1,1-(agg.spread||0)/.9));
-  $("mFill").style.width=Math.round(conf*Math.min(1,auto.count/3)*100)+"%";
+  $("mFill").style.width=Math.round(conf*Math.min(1,auto.count/AUTO_SAVE_SAMPLES)*100)+"%";
   $("mRight").textContent="±"+(agg.spread||0).toFixed(2)+"D";
-  $("saveBtn").disabled=!(baseList.length>=3&&(agg.spread||9)<.60);
+  $("saveBtn").disabled=!(baseList.length>=5&&(agg.spread||9)<.40);
   var last=baseList.length?baseList[baseList.length-1]:null,stat=["235 GLOBAL 도수"];
   if(last&&last._axisCount)stat.push("AXIS "+last._axisCount+"영역");
   if(ax&&Math.abs(rx.cyl)>=.50)stat.push("축 산포 ±"+ax.spread.toFixed(1)+"°");
@@ -1434,17 +1443,20 @@ function renderLive(gotOne){
   $("fastStat").textContent=stat.join(" · ");
   var canAuto=gotOne===true&&S.stream&&S.reference&&!S.refMode&&Date.now()>=S.autoSaveCooldownUntil;
   if(auto.ready&&canAuto){
-    setBanner("좋은 프레임 3개 일치 — 자동 저장","ok");
+    setBanner("좋은 프레임 5개 일치 — 자동 저장","ok");
     if(!S.autoSavePending){
       S.autoSavePending=true;S.autoSaveTimer=setTimeout(function(){
         S.autoSaveTimer=null;var check=autoSaveState();
         if(!S.autoSavePending||!S.stream||!S.reference||S.refMode||!check.ready){S.autoSavePending=false;renderLive(false);return;}
         S.autoSavePending=false;saveEye(true);
-      },260);
+      },340);
     }
   }else{
     cancelAutoSave();
-    if(gotOne)setBanner("좋은 프레임 찾는 중 "+auto.count+"/3 — 흔들린 프레임은 자동 제외","warn");
+    if(gotOne){
+      var wait=(auto.count>=AUTO_SAVE_SAMPLES&&auto.span<AUTO_SAVE_MIN_SPAN)?" · 잠깐만 더 유지":"";
+      setBanner("좋은 프레임 찾는 중 "+auto.count+"/"+AUTO_SAVE_SAMPLES+" — 흔들린 프레임은 자동 제외"+wait,"warn");
+    }
   }
 }
 
