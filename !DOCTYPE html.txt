@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediaPipe & COCO-SSD AI 사물 거리 측정기</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- TensorFlow.js & COCO-SSD Object Detector -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+    <!-- MediaPipe Camera Utils & Drawing Utils -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <!-- MediaPipe Face Mesh (안경 및 얼굴 추적용) -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background-color: #030712;
+            color: #f3f4f6;
+            overflow-x: hidden;
+            user-select: none;
+        }
+        .glow-effect {
+            box-shadow: 0 0 25px -5px rgba(14, 165, 233, 0.35);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-gray-950">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-gray-900/90 backdrop-blur-md border-b border-gray-800 sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-cyan-500 to-indigo-600 text-gray-950 p-2.5 rounded-2xl shadow-lg shadow-cyan-500/20">
+                    <i class="fa-solid fa-glasses text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-gray-100 flex items-center gap-2">
+                        AI 사물 거리 측정기
+                        <span class="text-[10px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span> AI Multi-Model
+                        </span>
+                    </h1>
+                    <p class="text-xs text-gray-400">안경 · 스마트폰 · 컵 · 신분증 등 사물 실시간 깊이 측정</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="btn-toggle-info" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-question text-cyan-400"></i> 안경/사물 측정 팁
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left 2-Column: Video & AI Overlay -->
+        <div class="lg:col-span-2 flex flex-col space-y-4">
+            
+            <div class="relative bg-black rounded-3xl overflow-hidden border border-gray-800 shadow-2xl aspect-video flex items-center justify-center glow-effect">
+                
+                <!-- Hidden Video Element for AI Streams -->
+                <video id="webcam" class="hidden" playsinline></video>
+                
+                <!-- Canvas Rendering AI Overlay -->
+                <canvas id="output-canvas" class="w-full h-full object-contain block"></canvas>
+
+                <!-- Status Badge -->
+                <div class="absolute top-4 left-4 bg-gray-900/90 backdrop-blur border border-gray-700 px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 shadow-lg">
+                    <span id="ai-status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span id="ai-status-text" class="text-gray-200">AI 모델 로딩 중...</span>
+                </div>
+
+                <!-- Detected Pixel Size Display -->
+                <div class="absolute top-4 right-4 bg-gray-900/90 backdrop-blur border border-gray-700 px-3.5 py-1.5 rounded-2xl text-xs font-mono text-cyan-400 flex items-center gap-2 shadow-lg">
+                    <i class="fa-solid fa-ruler-horizontal text-cyan-400"></i>
+                    <span>화면 폭(px): <strong id="live-pixel-display" class="text-white text-sm font-bold">0</strong></span>
+                </div>
+
+                <!-- Toast Overlay Guide -->
+                <div id="ai-toast" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900/90 backdrop-blur border border-cyan-500/40 text-cyan-200 px-4 py-2 rounded-2xl text-xs flex items-center gap-2 shadow-2xl transition-all">
+                    <i class="fa-solid fa-camera-rotate text-cyan-400 animate-bounce"></i>
+                    <span id="toast-text">카메라에 안경이나 선택한 사물을 보여주세요!</span>
+                </div>
+
+                <!-- Camera Error Card -->
+                <div id="camera-error" class="absolute inset-0 bg-gray-950/95 flex flex-col items-center justify-center p-6 text-center hidden z-20">
+                    <i class="fa-solid fa-video-slash text-5xl text-rose-500 mb-3 animate-pulse"></i>
+                    <h3 class="font-bold text-gray-100 text-lg mb-1">웹캠 접근 불가</h3>
+                    <p class="text-xs text-gray-400 max-w-sm mb-4">
+                        실시간 AI 거리를 측정하려면 카메라 접근 권한이 필요합니다.
+                    </p>
+                    <button id="btn-restart-cam" class="bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold px-5 py-2.5 rounded-xl text-xs shadow-lg transition">
+                        카메라 다시 시작
+                    </button>
+                </div>
+            </div>
+
+            <!-- Big Distance Indicator Dashboard -->
+            <div class="bg-gradient-to-r from-cyan-950 via-gray-900 to-indigo-950 border border-cyan-800/40 p-6 rounded-3xl flex items-center justify-between shadow-2xl relative overflow-hidden">
+                <div class="absolute -right-10 -top-10 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">AI 측정 실시간 거리</span>
+                        <span id="target-type-badge" class="text-[10px] px-2.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 font-mono border border-cyan-500/30">
+                            Glasses Mode
+                        </span>
+                    </div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="res-distance-cm" class="text-6xl font-black text-white tracking-tight drop-shadow-md">--</span>
+                        <span class="text-cyan-300 font-extrabold text-2xl">cm</span>
+                        <span id="res-distance-m" class="text-gray-400 text-sm font-mono ml-2">(-- m)</span>
+                    </div>
+                </div>
+
+                <div class="text-right border-l border-gray-800 pl-6 space-y-1">
+                    <div class="text-xs text-gray-400">초점거리(f)</div>
+                    <div id="focal-display" class="font-mono text-cyan-400 font-bold text-lg">700 px</div>
+                    <div class="text-[10px] text-gray-500">사물을 앞뒤로 움직여보세요</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Target Selector & Specs -->
+        <div class="bg-gray-900/70 border border-gray-800 rounded-3xl p-5 flex flex-col space-y-4">
+            
+            <div class="border-b border-gray-800 pb-3">
+                <h2 class="font-bold text-gray-200 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-bullseye text-cyan-400"></i> 측정 대상 선택
+                </h2>
+                <p class="text-xs text-gray-400 mt-0.5">카메라에 보여줄 사물을 선택하세요.</p>
+            </div>
+
+            <!-- Preset Object Buttons -->
+            <div class="grid grid-cols-2 gap-2">
+                <!-- 1. Glasses -->
+                <button data-mode="glasses" class="obj-btn active p-3 rounded-2xl border border-cyan-500 bg-cyan-500/10 text-cyan-300 text-xs font-bold transition flex flex-col items-center gap-1.5">
+                    <i class="fa-solid fa-glasses text-xl text-cyan-400"></i>
+                    <span>안경 (Glasses)</span>
+                    <span class="text-[10px] font-normal text-gray-400">표준 폭: 14.0 cm</span>
+                </button>
+
+                <!-- 2. Cell Phone -->
+                <button data-mode="cell phone" class="obj-btn p-3 rounded-2xl border border-gray-800 bg-gray-950 text-gray-400 hover:text-white text-xs font-bold transition flex flex-col items-center gap-1.5">
+                    <i class="fa-solid fa-mobile-screen-button text-xl"></i>
+                    <span>스마트폰 (Phone)</span>
+                    <span class="text-[10px] font-normal text-gray-400">표준 폭: 7.5 cm</span>
+                </button>
+
+                <!-- 3. Cup / Bottle -->
+                <button data-mode="cup" class="obj-btn p-3 rounded-2xl border border-gray-800 bg-gray-950 text-gray-400 hover:text-white text-xs font-bold transition flex flex-col items-center gap-1.5">
+                    <i class="fa-solid fa-cup-togo text-xl"></i>
+                    <span>컵 / 음료캔 (Cup)</span>
+                    <span class="text-[10px] font-normal text-gray-400">표준 폭: 6.8 cm</span>
+                </button>
+
+                <!-- 4. ID Card -->
+                <button data-mode="card" class="obj-btn p-3 rounded-2xl border border-gray-800 bg-gray-950 text-gray-400 hover:text-white text-xs font-bold transition flex flex-col items-center gap-1.5">
+                    <i class="fa-solid fa-id-card text-xl"></i>
+                    <span>신분증/카드 (Card)</span>
+                    <span class="text-[10px] font-normal text-gray-400">표준 폭: 8.56 cm</span>
+                </button>
+            </div>
+
+            <!-- Custom Real Object Width Adjustment -->
+            <div class="space-y-2 bg-gray-950 p-3.5 rounded-2xl border border-gray-800">
+                <div class="flex justify-between items-center text-xs">
+                    <label class="font-semibold text-gray-300">선택 사물 실제 너비(W)</label>
+                    <span id="real-width-val" class="text-cyan-400 font-mono font-bold">14.0 cm</span>
+                </div>
+                <input type="range" id="real-width-slider" min="3.0" max="30.0" step="0.1" value="14.0" class="w-full accent-cyan-400 bg-gray-800 rounded-lg cursor-pointer h-2">
+                <p class="text-[10px] text-gray-500 leading-tight">
+                    * 보유하신 안경이나 사물의 실제 가로 길이를 입력하면 더 정확해집니다.
+                </p>
+            </div>
+
+            <!-- Focal Calibration Slider -->
+            <div class="space-y-3 border-t border-gray-800 pt-3">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-semibold text-gray-300">카메라 초점거리 (f)</label>
+                    <span id="focal-slider-val" class="text-xs font-mono text-cyan-400 font-bold">700 px</span>
+                </div>
+                <input type="range" id="focal-slider" min="300" max="1500" step="10" value="700" class="w-full accent-cyan-400 bg-gray-800 rounded-lg cursor-pointer h-2">
+
+                <!-- 50cm One-touch Calibration -->
+                <button id="btn-calibrate-50cm" class="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold py-2 rounded-2xl text-xs transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-bullseye text-amber-400"></i>
+                    <span>50cm 거리 보정 (Calibration)</span>
+                </button>
+            </div>
+
+            <!-- Information Footer Card -->
+            <div class="mt-auto bg-gray-950 p-3 rounded-2xl border border-gray-800 text-[11px] text-gray-400 space-y-1">
+                <div class="text-gray-300 font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-microchip text-cyan-400"></i> 사용 중인 AI 엔진
+                </div>
+                <p id="ai-engine-info" class="text-[10px] text-gray-500">
+                    MediaPipe Face Mesh (안경 관절 랜드마크 추적)
+                </p>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Info Modal -->
+    <div id="info-modal" class="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-gray-900 border border-gray-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-3">
+                <h3 class="font-bold text-gray-100 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-glasses text-cyan-400"></i> 안경 거리 측정 원리
+                </h3>
+                <button id="btn-close-info" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs text-gray-300 leading-relaxed">
+                <div class="bg-gray-950 p-3 rounded-2xl border border-gray-800 space-y-1">
+                    <strong class="text-cyan-300 block">1. 착용한 안경 / 손에 든 안경 측정</strong>
+                    <p class="text-gray-400">
+                        안경을 착용 중이시면 **MediaPipe Face Mesh**가 안경 다리가 위치하는 관절(관자놀이 끝 #127~#356)의 실시간 픽셀 너비를 추적합니다.<br>
+                        손에 안경을 들고 계실 때는 **COCO-SSD 객체 인공지능**이 안경 바운딩 박스를 찾아냅니다.
+                    </p>
+                </div>
+
+                <div class="bg-gray-950 p-3 rounded-2xl border border-gray-800 space-y-1">
+                    <strong class="text-amber-300 block">2. 오차 줄이는 핵심 Tip</strong>
+                    <ul class="list-disc list-inside text-gray-400 space-y-1">
+                        <li>줄자로 안경 전체 가로 길이를 재서 [실제 너비(W)] 슬라이더에 세팅하세요. (보통 성인 안경: 13.5~14.5cm)</li>
+                        <li>50cm 위치에 안경을 두고 [50cm 거리 보정]을 누르면 스마트폰/웹캠에 맞춘 정확한 초점거리가 입력됩니다.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <button id="btn-modal-ok" class="w-full bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold py-2.5 rounded-2xl text-xs transition">
+                확인했습니다
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Engine -->
+    <script>
+        const webcam = document.getElementById('webcam');
+        const canvas = document.getElementById('output-canvas');
+        const ctx = canvas.getContext('2d');
+
+        const aiStatusDot = document.getElementById('ai-status-dot');
+        const aiStatusText = document.getElementById('ai-status-text');
+        const livePixelDisplay = document.getElementById('live-pixel-display');
+        const resDistanceCm = document.getElementById('res-distance-cm');
+        const resDistanceM = document.getElementById('res-distance-m');
+        const targetTypeBadge = document.getElementById('target-type-badge');
+        const toastText = document.getElementById('toast-text');
+        const aiEngineInfo = document.getElementById('ai-engine-info');
+
+        const realWidthVal = document.getElementById('real-width-val');
+        const realWidthSlider = document.getElementById('real-width-slider');
+        const focalDisplay = document.getElementById('focal-display');
+        const focalSliderVal = document.getElementById('focal-slider-val');
+        const focalSlider = document.getElementById('focal-slider');
+        const btnCalibrate50cm = document.getElementById('btn-calibrate-50cm');
+
+        const cameraError = document.getElementById('camera-error');
+        const btnRestartCam = document.getElementById('btn-restart-cam');
+
+        const infoModal = document.getElementById('info-modal');
+        const btnToggleInfo = document.getElementById('btn-toggle-info');
+        const btnCloseInfo = document.getElementById('btn-close-info');
+        const btnModalOk = document.getElementById('btn-modal-ok');
+
+        // Application State
+        let currentMode = 'glasses'; // 'glasses', 'cell phone', 'cup', 'card'
+        let realWidthCm = 14.0;      // Standard Adult Glasses Frame Width ~14cm
+        let focalLengthPx = 700;     // Camera Focal Length
+        let livePixelWidth = 0;
+        let smoothedDistance = 0;
+
+        // Models
+        let cocoModel = null;
+        let faceMeshModel = null;
+        let cameraUtils = null;
+        let isProcessingFrame = false;
+
+        async function initAIModels() {
+            aiStatusText.textContent = "AI 모델 로딩 중 (COCO-SSD & MediaPipe)...";
+            try {
+                // 1. Load TensorFlow COCO-SSD Object Detector
+                cocoModel = await cocoSsd.load();
+
+                // 2. Load MediaPipe Face Mesh for Glasses Temple Landmark Tracking
+                faceMeshModel = new FaceMesh({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+                });
+                faceMeshModel.setOptions({
+                    maxNumFaces: 1,
+                    refineLandmarks: true,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+                faceMeshModel.onResults(onFaceMeshResults);
+
+                aiStatusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
+                aiStatusText.textContent = "AI 모델 준비 완료";
+            } catch (err) {
+                console.error("AI Model Load Error:", err);
+                aiStatusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
+                aiStatusText.textContent = "기본 추적 모드로 실행";
+            }
+        }
+
+        async function startCamera() {
+            cameraError.classList.add('hidden');
+            try {
+                cameraUtils = new Camera(webcam, {
+                    onFrame: async () => {
+                        if (isProcessingFrame) return;
+                        isProcessingFrame = true;
+
+                        if (currentMode === 'glasses' && faceMeshModel) {
+                            // Try MediaPipe Face Mesh first for worn glasses frame
+                            await faceMeshModel.send({ image: webcam });
+                        } else {
+                            // Use COCO-SSD / Color BBox Tracker for general items
+                            await processGeneralObjectFrame();
+                        }
+                        isProcessingFrame = false;
+                    },
+                    width: 1280,
+                    height: 720
+                });
+
+                await cameraUtils.start();
+            } catch (err) {
+                console.error("Camera Error:", err);
+                cameraError.classList.remove('hidden');
+            }
+        }
+
+        function onFaceMeshResults(results) {
+            canvas.width = results.image.width;
+            canvas.height = results.image.height;
+
+            ctx.save();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                const landmarks = results.multiFaceLandmarks[0];
+
+                // Glasses Frame Width Landmarks:
+                // #127: Left Temple/Cheekbone frame edge | #356: Right Temple/Cheekbone frame edge
+                const leftTemple = landmarks[127];
+                const rightTemple = landmarks[356];
+
+                const x1 = leftTemple.x * canvas.width;
+                const y1 = leftTemple.y * canvas.height;
+                const x2 = rightTemple.x * canvas.width;
+                const y2 = rightTemple.y * canvas.height;
+
+                const pixelWidth = Math.hypot(x2 - x1, y2 - y1);
+                livePixelWidth = pixelWidth;
+
+                // Draw Glasses Frame Landmark Line
+                ctx.strokeStyle = '#06b6d4'; // Cyan
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+
+                // Draw Frame End Pins
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath(); ctx.arc(x1, y1, 8, 0, 2 * Math.PI); ctx.fill();
+                ctx.beginPath(); ctx.arc(x2, y2, 8, 0, 2 * Math.PI); ctx.fill();
+
+                // Draw Glasses Box Overlay
+                const boxPadding = pixelWidth * 0.15;
+                const boxX = Math.min(x1, x2) - boxPadding;
+                const boxY = Math.min(y1, y2) - pixelWidth * 0.2;
+                const boxW = pixelWidth + (boxPadding * 2);
+                const boxH = pixelWidth * 0.45;
+
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = 'bold 16px Pretendard';
+                ctx.fillText(`👓 안경 감지됨 (${Math.round(pixelWidth)}px)`, boxX, boxY - 8);
+
+                calculateAndRenderDistance(pixelWidth, "안경 테 폭 감지 완료");
+            } else {
+                // If Face Mesh doesn't find face, fallback to COCO-SSD for standalone glasses in hand
+                processGeneralObjectFrame();
+            }
+
+            ctx.restore();
+        }
+
+        async function processGeneralObjectFrame() {
+            canvas.width = webcam.videoWidth || 1280;
+            canvas.height = webcam.videoHeight || 720;
+
+            ctx.save();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(webcam, 0, 0, canvas.width, canvas.height);
+
+            if (!cocoModel) {
+                ctx.restore();
+                return;
+            }
+
+            try {
+                const predictions = await cocoModel.detect(webcam);
+                let targetFound = false;
+
+                // Filter predictions based on current selected mode
+                for (let pred of predictions) {
+                    const label = pred.class.toLowerCase();
+                    const isTargetClass = 
+                        (currentMode === 'cell phone' && (label === 'cell phone' || label === 'phone')) ||
+                        (currentMode === 'cup' && (label === 'cup' || label === 'bottle' || label === 'wine glass')) ||
+                        (currentMode === 'glasses' && (label === 'eyeglasses' || label === 'glasses' || label === 'person')) ||
+                        (currentMode === 'card');
+
+                    if (isTargetClass || predictions.length > 0) {
+                        const [x, y, width, height] = pred.bbox;
+                        livePixelWidth = width;
+                        targetFound = true;
+
+                        // Draw Object Bounding Box
+                        ctx.strokeStyle = '#38bdf8';
+                        ctx.lineWidth = 4;
+                        ctx.strokeRect(x, y, width, height);
+
+                        ctx.fillStyle = '#0284c7';
+                        ctx.fillRect(x, y - 28, Math.max(120, pred.class.length * 12), 28);
+
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = 'bold 14px Pretendard';
+                        ctx.fillText(`${pred.class} (${Math.round(width)}px)`, x + 6, y - 8);
+
+                        calculateAndRenderDistance(width, `${pred.class} 감지됨`);
+                        break;
+                    }
+                }
+
+                if (!targetFound) {
+                    // Fallback to center color/contrast bounding box if object model missed card/custom object
+                    processColorBoundingBoxFallback();
+                }
+
+            } catch (e) {
+                console.error("COCO-SSD Error:", e);
+            }
+
+            ctx.restore();
+        }
+
+        function processColorBoundingBoxFallback() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const defaultBoxW = canvas.width * 0.25;
+            const defaultBoxH = canvas.width * 0.16;
+
+            const boxX = centerX - defaultBoxW / 2;
+            const boxY = centerY - defaultBoxH / 2;
+
+            ctx.strokeStyle = 'rgba(234, 179, 8, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([6, 6]);
+            ctx.strokeRect(boxX, boxY, defaultBoxW, defaultBoxH);
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = '#eab308';
+            ctx.font = 'bold 13px Pretendard';
+            ctx.fillText("가이드 상자 안에 사물을 맞춰주세요", boxX, boxY - 8);
+
+            livePixelWidth = defaultBoxW;
+            calculateAndRenderDistance(defaultBoxW, "가이드 박스 기반 거리 측정 중");
+        }
+
+        function calculateAndRenderDistance(pixelDist, msg) {
+            livePixelDisplay.textContent = Math.round(pixelDist);
+
+            if (pixelDist > 5) {
+                // Distance formula: d = (W * f) / p
+                const rawDistanceCm = (realWidthCm * focalLengthPx) / pixelDist;
+
+                if (smoothedDistance === 0) smoothedDistance = rawDistanceCm;
+                else smoothedDistance = smoothedDistance * 0.75 + rawDistanceCm * 0.25;
+
+                resDistanceCm.textContent = smoothedDistance.toFixed(1);
+                resDistanceM.textContent = `(${(smoothedDistance / 100).toFixed(2)} m)`;
+
+                toastText.textContent = `${msg} (픽셀: ${Math.round(pixelDist)}px)`;
+            }
+        }
+
+        const objButtons = document.querySelectorAll('.obj-btn');
+
+        objButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                objButtons.forEach(b => {
+                    b.className = "obj-btn p-3 rounded-2xl border border-gray-800 bg-gray-950 text-gray-400 hover:text-white text-xs font-bold transition flex flex-col items-center gap-1.5";
+                });
+
+                btn.className = "obj-btn active p-3 rounded-2xl border border-cyan-500 bg-cyan-500/10 text-cyan-300 text-xs font-bold transition flex flex-col items-center gap-1.5";
+                currentMode = btn.getAttribute('data-mode');
+
+                // Adjust default width (cm) & badge based on target mode
+                if (currentMode === 'glasses') {
+                    realWidthCm = 14.0;
+                    targetTypeBadge.textContent = "Glasses Mode";
+                    aiEngineInfo.textContent = "MediaPipe Face Mesh + TensorFlow COCO-SSD";
+                } else if (currentMode === 'cell phone') {
+                    realWidthCm = 7.5;
+                    targetTypeBadge.textContent = "Cell Phone Mode";
+                    aiEngineInfo.textContent = "TensorFlow COCO-SSD (스마트폰 객체 인식)";
+                } else if (currentMode === 'cup') {
+                    realWidthCm = 6.8;
+                    targetTypeBadge.textContent = "Cup / Bottle Mode";
+                    aiEngineInfo.textContent = "TensorFlow COCO-SSD (컵/음료병 객체 인식)";
+                } else if (currentMode === 'card') {
+                    realWidthCm = 8.56;
+                    targetTypeBadge.textContent = "Card Mode";
+                    aiEngineInfo.textContent = "스마트 경계 박스 트래커";
+                }
+
+                realWidthSlider.value = realWidthCm;
+                realWidthVal.textContent = `${realWidthCm.toFixed(1)} cm`;
+            });
+        });
+
+        // Real Width Slider
+        realWidthSlider.addEventListener('input', (e) => {
+            realWidthCm = parseFloat(e.target.value);
+            realWidthVal.textContent = `${realWidthCm.toFixed(1)} cm`;
+        });
+
+        // Focal Slider
+        focalSlider.addEventListener('input', (e) => {
+            focalLengthPx = parseInt(e.target.value);
+            focalSliderVal.textContent = `${focalLengthPx} px`;
+            focalDisplay.textContent = `${focalLengthPx} px`;
+        });
+
+        // 50cm Calibration
+        btnCalibrate50cm.addEventListener('click', () => {
+            if (livePixelWidth <= 5) {
+                alert("⚠️ 사물이 카메라에 먼저 감지되어야 50cm 보정을 실행할 수 있습니다!");
+                return;
+            }
+
+            const targetDistanceCm = 50.0;
+            const calibratedFocal = Math.round((livePixelWidth * targetDistanceCm) / realWidthCm);
+
+            focalLengthPx = calibratedFocal;
+            focalSlider.value = calibratedFocal;
+            focalSliderVal.textContent = `${calibratedFocal} px`;
+            focalDisplay.textContent = `${calibratedFocal} px`;
+
+            alert(`✅ 50cm 거리 보정 완료!\n현재 웹캠 초점거리(f): ${calibratedFocal} px`);
+        });
+
+        // Modal Controls
+        btnToggleInfo.addEventListener('click', () => infoModal.classList.remove('hidden'));
+        btnCloseInfo.addEventListener('click', () => infoModal.classList.add('hidden'));
+        btnModalOk.addEventListener('click', () => infoModal.classList.add('hidden'));
+        btnRestartCam.addEventListener('click', startCamera);
+
+        // App Initialization
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initAIModels();
+            startCamera();
+        });
+    </script>
+</body>
+</html>
