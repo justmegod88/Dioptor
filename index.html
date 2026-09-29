@@ -172,10 +172,11 @@
         const FAR_SIDE = 90;
         const BOX_SIZE_JUMP_MAX = 0.30;
         const BOX_CENTER_JUMP_MAX = 0.55;
-        const P_JUMP_MAX = 0.10;
-        const P_MEDIAN_WINDOW = 9;
-        const P_CONFIRM_FRAMES = 3;
-        const STORAGE_KEY = 'book_distance_touch_lock_v7_auto15_optional30';
+        const P_MEDIAN_WINDOW = 3;
+        const DISTANCE_EMA_ALPHA = 0.48;
+        const ASPECT_CHANGE_MAX = 0.20;
+        const SCALE_MISMATCH_MAX = 0.22;
+        const STORAGE_KEY = 'book_distance_touch_lock_v8_live_scale';
 
         const webcam = document.getElementById('webcam');
         const canvas = document.getElementById('output-canvas');
@@ -262,35 +263,19 @@
         function stabilizePixelWidth(rawP) {
             if (!(rawP > 0)) return { p: stablePixelWidth || 0, held: true };
 
+            // 실제 앞뒤 이동은 즉시 따라가야 하므로 큰 폭 변화 자체를 막지 않는다.
+            // 최근 3프레임 중앙값 + 빠른 EMA만 사용해 작은 검출 떨림만 줄인다.
+            pMedianHistory.push(rawP);
+            while (pMedianHistory.length > P_MEDIAN_WINDOW) pMedianHistory.shift();
+            const med = median(pMedianHistory);
+
             if (!(stablePixelWidth > 0)) {
-                pMedianHistory.push(rawP);
-                while (pMedianHistory.length > P_MEDIAN_WINDOW) pMedianHistory.shift();
-                stablePixelWidth = median(pMedianHistory);
-                return { p: stablePixelWidth, held: false };
+                stablePixelWidth = med;
+            } else {
+                stablePixelWidth += (med - stablePixelWidth) * DISTANCE_EMA_ALPHA;
             }
-
-            const jump = Math.abs(rawP - stablePixelWidth) / Math.max(1, stablePixelWidth);
-            if (jump <= P_JUMP_MAX) {
-                jumpCandidates = [];
-                pMedianHistory.push(rawP);
-                while (pMedianHistory.length > P_MEDIAN_WINDOW) pMedianHistory.shift();
-                stablePixelWidth = median(pMedianHistory);
-                return { p: stablePixelWidth, held: false };
-            }
-
-            jumpCandidates.push(rawP);
-            while (jumpCandidates.length > P_CONFIRM_FRAMES) jumpCandidates.shift();
-            if (jumpCandidates.length >= P_CONFIRM_FRAMES) {
-                const c = median(jumpCandidates);
-                const spread = Math.max(...jumpCandidates.map(v => Math.abs(v - c) / Math.max(1, c)));
-                if (spread < 0.045) {
-                    pMedianHistory = jumpCandidates.slice();
-                    stablePixelWidth = c;
-                    jumpCandidates = [];
-                    return { p: stablePixelWidth, held: false };
-                }
-            }
-            return { p: stablePixelWidth, held: true };
+            jumpCandidates = [];
+            return { p: stablePixelWidth, held: false };
         }
 
         function canvasPointFromPointer(e) {
@@ -379,7 +364,7 @@
             selectBookLabel.textContent = '책 다시 지정';
             btnSelectBook.classList.remove('bg-amber-400', 'hover:bg-amber-300');
             btnSelectBook.classList.add('bg-cyan-500/95', 'hover:bg-cyan-400');
-            toastText.textContent = '책 영역 고정됨 · 자동 거리 추정을 시작합니다 · 필요하면 30cm 보정하세요';
+            toastText.textContent = '책 대상 지정됨 · 앞뒤 이동을 실시간 추적합니다 · 필요하면 30cm 보정하세요';
             setStatus('책 영역 고정됨 · 추적 중', 'green');
         }
 
@@ -387,19 +372,28 @@
             if (!manualLock) return true;
             const anchor = lastGoodBookBox || manualTargetBox;
             if (!anchor) return true;
+
             const a = boxCenter(anchor);
             const b = boxCenter(box);
             const centerJump = Math.hypot(a.cx - b.cx, a.cy - b.cy) / Math.max(1, Math.max(anchor.w, anchor.h));
 
-            // 사용자가 처음 지정한 박스는 '이 책'을 알려주는 용도다.
-            // 첫 AI 박스는 크기 차이를 강하게 제한하지 않고 위치/겹침만 확인해 기준으로 채택한다.
+            // 첫 AI 검출은 사용자가 지정한 영역과 위치가 비슷하면 채택한다.
             if (!lastGoodBookBox && manualTargetBox) {
                 return boxIou(manualTargetBox, box) >= 0.05 || centerJump <= 0.45;
             }
 
-            const wJump = Math.abs(box.w - anchor.w) / Math.max(1, anchor.w);
-            const hJump = Math.abs(box.h - anchor.h) / Math.max(1, anchor.h);
-            return wJump <= BOX_SIZE_JUMP_MAX && hJump <= BOX_SIZE_JUMP_MAX && centerJump <= BOX_CENTER_JUMP_MAX;
+            // 앞뒤 이동이면 가로와 세로가 '같이' 커지거나 작아진다.
+            // 따라서 절대 크기 변화는 허용하고, 한쪽 변만 갑자기 잘리는 변화만 차단한다.
+            const rw = box.w / Math.max(1, anchor.w);
+            const rh = box.h / Math.max(1, anchor.h);
+            const oldAspect = anchor.w / Math.max(1, anchor.h);
+            const newAspect = box.w / Math.max(1, box.h);
+            const aspectChange = Math.abs(newAspect - oldAspect) / Math.max(0.01, oldAspect);
+            const scaleMismatch = Math.abs(Math.log(Math.max(0.01, rw) / Math.max(0.01, rh)));
+
+            const uniformScale = aspectChange <= ASPECT_CHANGE_MAX && scaleMismatch <= SCALE_MISMATCH_MAX;
+            const centerOkay = centerJump <= 0.75;
+            return uniformScale && centerOkay;
         }
 
         function saveCalib() {
@@ -834,7 +828,7 @@
             updateCalibButton();
 
             if (stable.held) {
-                toastText.textContent = `책 가림/박스 변화 감지 · 이전 기준 ${p.toFixed(0)}px 유지`;
+                toastText.textContent = `책 추적 유지 · ${p.toFixed(0)}px`;
             } else if (!isCalibrated) {
                 toastText.textContent = pointsStable()
                     ? `자동 추정 ${resDistanceCm.textContent}cm · 필요 시 30cm 보정`
@@ -895,8 +889,8 @@
                             measFresh = { ...lastGoodBookBox };
                         }
                         lastHitAt = performance.now();
-                        toastText.textContent = '책 일부 가림 감지 · 이전 책 크기 유지';
-                        setStatus('책 고정 추적 · 급격한 박스 변화 무시', 'amber');
+                        toastText.textContent = '책 일부 가림 감지 · 왜곡된 박스만 무시';
+                        setStatus('책 고정 추적 · 가림 프레임 무시', 'amber');
                     } else {
                         lastBookBox = { x: best.x, y: best.y, w: best.w, h: best.h };
                         lastGoodBookBox = { ...lastBookBox };
