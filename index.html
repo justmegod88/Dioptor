@@ -85,9 +85,9 @@
                     </div>
                     <div class="flex flex-col items-stretch gap-1 shrink-0">
                         <button id="btn-calibrate-30cm" class="bg-amber-500 hover:bg-amber-400 text-gray-950 border border-amber-300 font-bold px-3 py-2.5 rounded-xl text-xs shadow-lg disabled:opacity-40 disabled:cursor-not-allowed">
-                            지금 거리 = 30cm 로 보정
+                            정확도 보정(선택) · 현재 30cm
                         </button>
-                        <p id="calib-status" class="text-[10px] text-gray-200 text-right drop-shadow">미보정</p>
+                        <p id="calib-status" class="text-[10px] text-cyan-200 text-right drop-shadow">자동 추정 사용 중</p>
                     </div>
                 </div>
 
@@ -108,11 +108,11 @@
                         <span class="text-cyan-300 font-extrabold text-xl">cm</span>
                         <span id="res-distance-m" class="text-gray-400 text-sm font-mono">(-- m)</span>
                     </div>
-                    <p id="measure-hint" class="text-[10px] text-amber-300/90 mt-1">보정 전 · 오른쪽에서 이 카메라 1회 보정이 필요합니다</p>
+                    <p id="measure-hint" class="text-[10px] text-cyan-300/90 mt-1">자동 거리 추정 · 필요하면 30cm 보정으로 정확도를 높일 수 있습니다</p>
                 </div>
                 <div class="text-right border-l border-gray-800 pl-4">
-                    <div class="text-xs text-gray-400">30cm 보정 기준 p</div>
-                    <div id="focal-display" class="font-mono text-cyan-400 font-bold text-lg">--</div>
+                    <div class="text-xs text-gray-400">거리 기준</div>
+                    <div id="focal-display" class="font-mono text-cyan-400 font-bold text-lg">자동 추정</div>
                     <div id="focus-lock-label" class="text-[10px] text-gray-500 mt-1">초점: 확인 전</div>
                 </div>
         </div>
@@ -124,18 +124,20 @@
                 </h2>
                 <ol class="text-[11px] text-gray-400 mt-2 space-y-1.5 list-decimal list-inside leading-relaxed">
                     <li>책을 <b class="text-gray-200">세워서</b> 카메라 앞에 둡니다.</li>
-                    <li><b class="text-cyan-300">책 영역 지정</b>을 누른 뒤 책 표지 전체를 손가락으로 드래그합니다.</li>
-                    <li>책은 <b class="text-gray-200">세운 상태</b>로 사용하고, 실제 책 가로 길이는 입력하지 않습니다. <b class="text-gray-200">30cm</b>에서 한 번 보정합니다.</li>
+                    <li>책 가로 길이는 기본 <b class="text-cyan-300">15.0cm</b>입니다. 사용하는 책에 맞게 조절할 수 있습니다.</li>
+                    <li>AI가 책을 찾으면 <b class="text-cyan-300">자동으로 거리 추정</b>을 시작합니다. 필요할 때만 <b class="text-cyan-300">책 영역 지정</b>으로 책 표지 전체를 드래그해 고정합니다.</li>
+                    <li><b class="text-amber-300">30cm 보정은 선택 사항</b>입니다. 실제 30cm에 책을 두고 누르면 해당 카메라에 맞게 정확도를 높입니다.</li>
                     <li>안경이나 손이 책을 잠깐 가려도 급격한 박스 변화는 무시하고 이전 기준을 유지합니다.</li>
                 </ol>
             </div>
 
             <div class="space-y-2 bg-gray-950 p-3 rounded-xl border border-gray-800">
-                <div class="flex justify-between text-xs items-center">
-                    <span class="font-semibold text-gray-300">기준 설정</span>
-                    <span class="text-cyan-400 font-mono font-bold">세운 책 · 30cm</span>
+                <div class="flex justify-between text-xs">
+                    <label class="font-semibold text-gray-300">책 실제 가로 길이 (W)</label>
+                    <span id="real-width-val" class="text-cyan-400 font-mono font-bold">15.0 cm</span>
                 </div>
-                <p class="text-[10px] text-gray-500">같은 책을 기준으로 30cm에서 보정하므로 책의 실제 가로 cm는 입력할 필요가 없습니다.</p>
+                <input type="range" id="real-width-slider" min="8.0" max="30.0" step="0.1" value="15.0" class="w-full accent-cyan-400 h-2">
+                <p class="text-[10px] text-gray-500">기본값은 15.0cm입니다. 책을 세웠을 때 표지의 가로 길이를 입력하세요.</p>
             </div>
         </div>
     </main>
@@ -148,8 +150,9 @@
             </div>
             <ul class="text-xs text-gray-300 space-y-2 list-disc list-inside leading-relaxed">
                 <li>브라우저에서 <b>COCO-SSD</b>가 <b>book</b>만 찾습니다. 학습·서버 전송 없습니다.</li>
-                <li>거리 cm = 30cm × (30cm 보정 때의 책 픽셀 폭 ÷ 현재 책 픽셀 폭)</li>
-                <li>p는 세워진 책 박스의 가로 폭 픽셀 길이입니다. 실제 책 가로 cm는 필요하지 않습니다.</li>
+                <li>기본 상태에서는 책 실제 가로 W와 약 60°의 카메라 가로 화각 초기값으로 거리를 바로 추정합니다.</li>
+                <li>30cm 보정을 하면 f = (책 픽셀 폭 p × 30cm) ÷ 실제 책 가로 W로 해당 카메라 값을 다시 계산합니다.</li>
+                <li>이후 거리 cm = (실제 책 가로 W × 카메라 f) ÷ 현재 책 픽셀 폭 p 로 계산합니다.</li>
                 <li>COCO-SSD의 기본 <b>book</b> 클래스를 이용해 책을 직접 인식합니다.</li>
             </ul>
             <button id="btn-modal-ok" class="w-full bg-cyan-500 text-gray-950 font-bold py-2.5 rounded-2xl text-xs">확인</button>
@@ -157,6 +160,8 @@
     </div>
 <script>
         const CALIB_DISTANCE_CM = 30;
+        const DEFAULT_BOOK_WIDTH_CM = 15.0;
+        const DEFAULT_HFOV_DEG = 60;
         const P_SAMPLES = 6;
         const YAW_RATIO_MAX = 0.27;
         const HOLD_MS = 1800;
@@ -170,7 +175,7 @@
         const P_JUMP_MAX = 0.10;
         const P_MEDIAN_WINDOW = 9;
         const P_CONFIRM_FRAMES = 3;
-        const STORAGE_KEY = 'book_distance_touch_lock_v6_ratio30';
+        const STORAGE_KEY = 'book_distance_touch_lock_v7_auto15_optional30';
 
         const webcam = document.getElementById('webcam');
         const canvas = document.getElementById('output-canvas');
@@ -193,8 +198,13 @@
         const infoModal = document.getElementById('info-modal');
         const btnSelectBook = document.getElementById('btn-select-book');
         const selectBookLabel = document.getElementById('select-book-label');
+        const realWidthVal = document.getElementById('real-width-val');
+        const realWidthSlider = document.getElementById('real-width-slider');
 
         let isCalibrated = false;
+        let realWidthCm = DEFAULT_BOOK_WIDTH_CM;
+        let focalLengthPx = 0;
+        let autoFocalLengthPx = 0;
         let videoTrack = null;
         let focusLocked = false;
         let rafId = 0;
@@ -338,10 +348,7 @@
             pSamples = [];
             resetSmoother();
             resetPixelStabilizer();
-            isCalibrated = false;
-            calibP = 0;
             applyCalibToUi();
-            saveCalib();
             selectBookLabel.textContent = '책을 드래그하세요';
             btnSelectBook.classList.remove('bg-cyan-500/95', 'hover:bg-cyan-400');
             btnSelectBook.classList.add('bg-amber-400', 'hover:bg-amber-300');
@@ -372,7 +379,7 @@
             selectBookLabel.textContent = '책 다시 지정';
             btnSelectBook.classList.remove('bg-amber-400', 'hover:bg-amber-300');
             btnSelectBook.classList.add('bg-cyan-500/95', 'hover:bg-cyan-400');
-            toastText.textContent = '책 영역 고정됨 · AI가 이 책만 추적합니다 · 30cm에서 보정하세요';
+            toastText.textContent = '책 영역 고정됨 · 자동 거리 추정을 시작합니다 · 필요하면 30cm 보정하세요';
             setStatus('책 영역 고정됨 · 추적 중', 'green');
         }
 
@@ -398,7 +405,7 @@
         function saveCalib() {
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                    isCalibrated, calibP,
+                    isCalibrated, focalLengthPx, realWidthCm,
                     frameW: lastFrameSize.w, frameH: lastFrameSize.h
                 }));
             } catch (_) {}
@@ -408,25 +415,37 @@
             try {
                 const o = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
                 if (!o) return;
-                if (o.calibP) calibP = Number(o.calibP);
-                isCalibrated = !!o.isCalibrated && calibP > 0;
+                if (o.realWidthCm) realWidthCm = Number(o.realWidthCm);
+                if (o.focalLengthPx) focalLengthPx = Number(o.focalLengthPx);
+                isCalibrated = !!o.isCalibrated && focalLengthPx > 0;
             } catch (_) {}
         }
 
+        function estimateAutoFocal(frameW) {
+            if (!(frameW > 0)) return 0;
+            const hfovRad = DEFAULT_HFOV_DEG * Math.PI / 180;
+            return frameW / (2 * Math.tan(hfovRad / 2));
+        }
+
+        function getActiveFocalLength() {
+            return isCalibrated && focalLengthPx > 0 ? focalLengthPx : autoFocalLengthPx;
+        }
+
         function applyCalibToUi() {
-            if (isCalibrated && calibP > 0) {
-                focalDisplay.textContent = `${Math.round(calibP)} px`;
-                calibStatus.textContent = `보정됨 · 기준 p=${Math.round(calibP)}px`;
+            realWidthSlider.value = realWidthCm;
+            realWidthVal.textContent = `${realWidthCm.toFixed(1)} cm`;
+            if (isCalibrated && focalLengthPx > 0) {
+                focalDisplay.textContent = '30cm 보정';
+                calibStatus.textContent = `보정됨 · f=${Math.round(focalLengthPx)}px`;
                 calibStatus.className = 'text-[10px] text-emerald-300 text-right drop-shadow';
-                measureHint.textContent = '측정 중 · 책을 세워서 정면으로 보여 주세요';
+                measureHint.textContent = '보정값으로 측정 중 · 책을 세워서 정면으로 보여 주세요';
                 measureHint.className = 'text-[10px] text-emerald-300/90 mt-1';
             } else {
-                isCalibrated = false;
-                focalDisplay.textContent = '미보정';
-                calibStatus.textContent = '미보정 · 약 30cm에서 누르세요';
-                calibStatus.className = 'text-[10px] text-gray-200 text-right drop-shadow';
-                measureHint.textContent = '보정 전 · cm를 쓰려면 이 카메라 1회 보정이 필요합니다';
-                measureHint.className = 'text-[10px] text-amber-300/90 mt-1';
+                focalDisplay.textContent = '자동 추정';
+                calibStatus.textContent = '자동 추정 사용 중 · 30cm 보정은 선택';
+                calibStatus.className = 'text-[10px] text-cyan-200 text-right drop-shadow';
+                measureHint.textContent = '자동 거리 추정 중 · 필요하면 30cm 보정으로 정확도를 높이세요';
+                measureHint.className = 'text-[10px] text-cyan-300/90 mt-1';
             }
         }
 
@@ -471,9 +490,10 @@
                 const o = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
                 if (o.frameW && o.frameH && (o.frameW !== vw || o.frameH !== vh)) {
                     isCalibrated = false;
-                            calibP = 0;
+                    focalLengthPx = 0;
+                    calibP = 0;
                     applyCalibToUi();
-                    toastText.textContent = '해상도가 바뀌었습니다. 다시 보정하세요';
+                    toastText.textContent = '카메라 해상도가 바뀌어 자동 추정으로 전환했습니다 · 필요하면 30cm 보정하세요';
                     saveCalib();
                 }
             } catch (_) {}
@@ -535,7 +555,9 @@
             if (canvas.width !== vw || canvas.height !== vh) {
                 canvas.width = vw;
                 canvas.height = vh;
+                autoFocalLengthPx = estimateAutoFocal(vw);
                 invalidateCalibIfResolutionChanged(vw, vh);
+                applyCalibToUi();
             }
             lastFrameSize = { w: vw, h: vh };
             ctx.drawImage(webcam, 0, 0, vw, vh);
@@ -682,12 +704,13 @@
         function applyDistanceFromP(p) {
             livePixelWidth = p;
             livePixelDisplay.textContent = p.toFixed(1);
-            if (!isCalibrated || !(calibP > 0) || !(p > 0)) {
+            const f = getActiveFocalLength();
+            if (!(f > 0) || !(p > 0) || !(realWidthCm > 0)) {
                 resDistanceCm.textContent = '--';
                 resDistanceM.textContent = '(-- m)';
                 return;
             }
-            const d = CALIB_DISTANCE_CM * (calibP / p);
+            const d = (realWidthCm * f) / p;
             resDistanceCm.textContent = d.toFixed(1);
             resDistanceM.textContent = `(${(d / 100).toFixed(2)} m)`;
         }
@@ -814,10 +837,10 @@
                 toastText.textContent = `책 가림/박스 변화 감지 · 이전 기준 ${p.toFixed(0)}px 유지`;
             } else if (!isCalibrated) {
                 toastText.textContent = pointsStable()
-                    ? '세워진 책 인식 안정 · 약 30cm면 [보정]'
-                    : '책 폭 안정화 중 · 잠깐 가만히 두세요';
+                    ? `자동 추정 ${resDistanceCm.textContent}cm · 필요 시 30cm 보정`
+                    : `자동 추정 ${resDistanceCm.textContent}cm · 책 폭 안정화 중`;
             } else {
-                toastText.textContent = `안정 p=${p.toFixed(0)} / 보정 ${calibP.toFixed(0)} → ${resDistanceCm.textContent}cm`;
+                toastText.textContent = `보정 측정 · 안정 p=${p.toFixed(0)} → ${resDistanceCm.textContent}cm`;
             }
             return true;
         }
@@ -938,6 +961,13 @@
             }
         }
 
+        realWidthSlider.addEventListener('input', (e) => {
+            realWidthCm = parseFloat(e.target.value);
+            realWidthVal.textContent = `${realWidthCm.toFixed(1)} cm`;
+            if (livePixelWidth > 0) applyDistanceFromP(livePixelWidth);
+            saveCalib();
+        });
+
         btnCalibrate30cm.addEventListener('click', () => {
             if (!pointsStable()) {
                 toastText.textContent = '책을 세워 두고 점선이 붙은 뒤 잠깐 가만히 둔 후 다시 누르세요';
@@ -946,12 +976,13 @@
             const p = trimmedMean(pSamples);
             if (p <= 5) return;
             calibP = p;
+            focalLengthPx = (p * CALIB_DISTANCE_CM) / realWidthCm;
             isCalibrated = true;
             lastFrameSize = { w: canvas.width, h: canvas.height };
             applyCalibToUi();
             applyDistanceFromP(p);
             saveCalib();
-            toastText.textContent = `보정됨 기준 p=${Math.round(calibP)}px = 30cm · 가까워지면 오른쪽 위 px가 커지고 cm은 작아집니다`;
+            toastText.textContent = `30cm 보정 완료 · f=${Math.round(focalLengthPx)}px · 이제 보정값으로 측정합니다`;
         });
 
         btnSelectBook.addEventListener('click', beginBookSelection);
