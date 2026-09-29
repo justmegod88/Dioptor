@@ -35,6 +35,7 @@
             object-fit: cover;
             background: #000;
             display: block;
+            touch-action: none;
         }
     </style>
 </head>
@@ -69,13 +70,18 @@
                     <span id="ai-status-text" class="text-gray-200">COCO-SSD 로딩 중...</span>
                 </div>
 
-                <div class="absolute top-3 right-3 bg-gray-900/90 backdrop-blur border border-gray-700 px-3 py-1.5 rounded-2xl text-xs font-mono text-cyan-400">
-                    px: <strong id="live-pixel-display" class="text-white text-sm">0</strong>
+                <div class="absolute top-3 right-3 flex flex-col items-end gap-2 z-10">
+                    <div class="bg-gray-900/90 backdrop-blur border border-gray-700 px-3 py-1.5 rounded-2xl text-xs font-mono text-cyan-400">
+                        px: <strong id="live-pixel-display" class="text-white text-sm">0</strong>
+                    </div>
+                    <button id="btn-select-book" class="bg-cyan-500/95 hover:bg-cyan-400 text-gray-950 border border-cyan-300 font-extrabold px-3 py-2 rounded-xl text-xs shadow-lg flex items-center gap-1.5">
+                        <i class="fa-solid fa-vector-square"></i><span id="select-book-label">책 영역 지정</span>
+                    </button>
                 </div>
 
                 <div class="absolute bottom-3 left-3 right-3 z-10 flex items-end justify-between gap-2">
                     <div class="max-w-[55%] bg-gray-900/90 backdrop-blur border border-cyan-500/40 text-cyan-200 px-3 py-2 rounded-2xl text-xs">
-                        <span id="toast-text">카메라 앞에 책 표지가 보이도록 보여 주세요</span>
+                        <span id="toast-text">카메라 앞에 책을 세워서 보여 주세요</span>
                     </div>
                     <div class="flex flex-col items-stretch gap-1 shrink-0">
                         <button id="btn-calibrate-30cm" class="bg-amber-500 hover:bg-amber-400 text-gray-950 border border-amber-300 font-bold px-3 py-2.5 rounded-xl text-xs shadow-lg disabled:opacity-40 disabled:cursor-not-allowed">
@@ -105,7 +111,7 @@
                     <p id="measure-hint" class="text-[10px] text-amber-300/90 mt-1">보정 전 · 오른쪽에서 이 카메라 1회 보정이 필요합니다</p>
                 </div>
                 <div class="text-right border-l border-gray-800 pl-4">
-                    <div class="text-xs text-gray-400">이 카메라 f</div>
+                    <div class="text-xs text-gray-400">30cm 보정 기준 p</div>
                     <div id="focal-display" class="font-mono text-cyan-400 font-bold text-lg">--</div>
                     <div id="focus-lock-label" class="text-[10px] text-gray-500 mt-1">초점: 확인 전</div>
                 </div>
@@ -117,20 +123,19 @@
                     <i class="fa-solid fa-book-open text-cyan-400"></i> 테스트 방법
                 </h2>
                 <ol class="text-[11px] text-gray-400 mt-2 space-y-1.5 list-decimal list-inside leading-relaxed">
-                    <li>카메라를 <b class="text-gray-200">고정</b>하고, 책을 <b class="text-gray-200">앞에</b> 둡니다. (표지가 카메라를 향하도록 두면 인식이 쉽습니다)</li>
-                    <li>점선이 책에 붙으면, 책 표지의 <b class="text-gray-200">짧은 변</b> 실제 길이를 W에 맞춥니다.</li>
-                    <li>약 <b class="text-gray-200">30cm</b>에 두고 보정합니다.</li>
-                    <li>앞뒤로 옮기면 거리가 변해야 합니다.</li>
+                    <li>책을 <b class="text-gray-200">세워서</b> 카메라 앞에 둡니다.</li>
+                    <li><b class="text-cyan-300">책 영역 지정</b>을 누른 뒤 책 표지 전체를 손가락으로 드래그합니다.</li>
+                    <li>책은 <b class="text-gray-200">세운 상태</b>로 사용하고, 실제 책 가로 길이는 입력하지 않습니다. <b class="text-gray-200">30cm</b>에서 한 번 보정합니다.</li>
+                    <li>안경이나 손이 책을 잠깐 가려도 급격한 박스 변화는 무시하고 이전 기준을 유지합니다.</li>
                 </ol>
             </div>
 
             <div class="space-y-2 bg-gray-950 p-3 rounded-xl border border-gray-800">
-                <div class="flex justify-between text-xs">
-                    <label class="font-semibold text-gray-300">책의 짧은 변 실제 길이 (W)</label>
-                    <span id="real-width-val" class="text-cyan-400 font-mono font-bold">15.0 cm</span>
+                <div class="flex justify-between text-xs items-center">
+                    <span class="font-semibold text-gray-300">기준 설정</span>
+                    <span class="text-cyan-400 font-mono font-bold">세운 책 · 30cm</span>
                 </div>
-                <input type="range" id="real-width-slider" min="8.0" max="35.0" step="0.1" value="15.0" class="w-full accent-cyan-400 h-2">
-                <p class="text-[10px] text-gray-500">책 표지의 짧은 변 실제 길이를 입력하세요. 세로/가로 방향이 바뀌어도 짧은 변을 기준으로 추적합니다.</p>
+                <p class="text-[10px] text-gray-500">같은 책을 기준으로 30cm에서 보정하므로 책의 실제 가로 cm는 입력할 필요가 없습니다.</p>
             </div>
         </div>
     </main>
@@ -143,8 +148,8 @@
             </div>
             <ul class="text-xs text-gray-300 space-y-2 list-disc list-inside leading-relaxed">
                 <li>브라우저에서 <b>COCO-SSD</b>가 <b>book</b>만 찾습니다. 학습·서버 전송 없습니다.</li>
-                <li>거리 cm = (실제 가로 W × 이 카메라 f) ÷ 화면 픽셀 폭 p</li>
-                <li>p는 인식된 책 박스에서 선택된 기준 변의 픽셀 길이입니다.</li>
+                <li>거리 cm = 30cm × (30cm 보정 때의 책 픽셀 폭 ÷ 현재 책 픽셀 폭)</li>
+                <li>p는 세워진 책 박스의 가로 폭 픽셀 길이입니다. 실제 책 가로 cm는 필요하지 않습니다.</li>
                 <li>COCO-SSD의 기본 <b>book</b> 클래스를 이용해 책을 직접 인식합니다.</li>
             </ul>
             <button id="btn-modal-ok" class="w-full bg-cyan-500 text-gray-950 font-bold py-2.5 rounded-2xl text-xs">확인</button>
@@ -154,13 +159,18 @@
         const CALIB_DISTANCE_CM = 30;
         const P_SAMPLES = 6;
         const YAW_RATIO_MAX = 0.27;
-        const HOLD_MS = 900;
+        const HOLD_MS = 1800;
         const MIN_SCORE = 0.1;
         const TRACK_SCORE = 0.06;
         const MAX_BOXES = 20;
         const INFER_MAX = 640;
         const FAR_SIDE = 90;
-        const STORAGE_KEY = 'book_distance_calib_v2_coco';
+        const BOX_SIZE_JUMP_MAX = 0.30;
+        const BOX_CENTER_JUMP_MAX = 0.55;
+        const P_JUMP_MAX = 0.10;
+        const P_MEDIAN_WINDOW = 9;
+        const P_CONFIRM_FRAMES = 3;
+        const STORAGE_KEY = 'book_distance_touch_lock_v6_ratio30';
 
         const webcam = document.getElementById('webcam');
         const canvas = document.getElementById('output-canvas');
@@ -174,8 +184,6 @@
         const resDistanceCm = document.getElementById('res-distance-cm');
         const resDistanceM = document.getElementById('res-distance-m');
         const toastText = document.getElementById('toast-text');
-        const realWidthVal = document.getElementById('real-width-val');
-        const realWidthSlider = document.getElementById('real-width-slider');
         const focalDisplay = document.getElementById('focal-display');
         const btnCalibrate30cm = document.getElementById('btn-calibrate-30cm');
         const calibStatus = document.getElementById('calib-status');
@@ -183,9 +191,9 @@
         const focusLockLabel = document.getElementById('focus-lock-label');
         const cameraError = document.getElementById('camera-error');
         const infoModal = document.getElementById('info-modal');
+        const btnSelectBook = document.getElementById('btn-select-book');
+        const selectBookLabel = document.getElementById('select-book-label');
 
-        let realWidthCm = 15.0;
-        let focalLengthPx = 0;
         let isCalibrated = false;
         let videoTrack = null;
         let focusLocked = false;
@@ -213,15 +221,184 @@
         let currentDots = null;
         let livePixelWidth = 0;
         let pSamples = [];
+        let manualLock = false;
+        let selectingBook = false;
+        let manualTargetBox = null;
+        let lastGoodBookBox = null;
+        let dragStart = null;
+        let dragCurrent = null;
+        let stablePixelWidth = 0;
+        let pMedianHistory = [];
+        let jumpCandidates = [];
 
         function dist(a, b) {
             return Math.hypot(b.x - a.x, b.y - a.y);
         }
 
+
+        function median(values) {
+            if (!values.length) return 0;
+            const s = values.slice().sort((a, b) => a - b);
+            const m = Math.floor(s.length / 2);
+            return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+        }
+
+        function resetPixelStabilizer() {
+            stablePixelWidth = 0;
+            pMedianHistory = [];
+            jumpCandidates = [];
+        }
+
+        function stabilizePixelWidth(rawP) {
+            if (!(rawP > 0)) return { p: stablePixelWidth || 0, held: true };
+
+            if (!(stablePixelWidth > 0)) {
+                pMedianHistory.push(rawP);
+                while (pMedianHistory.length > P_MEDIAN_WINDOW) pMedianHistory.shift();
+                stablePixelWidth = median(pMedianHistory);
+                return { p: stablePixelWidth, held: false };
+            }
+
+            const jump = Math.abs(rawP - stablePixelWidth) / Math.max(1, stablePixelWidth);
+            if (jump <= P_JUMP_MAX) {
+                jumpCandidates = [];
+                pMedianHistory.push(rawP);
+                while (pMedianHistory.length > P_MEDIAN_WINDOW) pMedianHistory.shift();
+                stablePixelWidth = median(pMedianHistory);
+                return { p: stablePixelWidth, held: false };
+            }
+
+            jumpCandidates.push(rawP);
+            while (jumpCandidates.length > P_CONFIRM_FRAMES) jumpCandidates.shift();
+            if (jumpCandidates.length >= P_CONFIRM_FRAMES) {
+                const c = median(jumpCandidates);
+                const spread = Math.max(...jumpCandidates.map(v => Math.abs(v - c) / Math.max(1, c)));
+                if (spread < 0.045) {
+                    pMedianHistory = jumpCandidates.slice();
+                    stablePixelWidth = c;
+                    jumpCandidates = [];
+                    return { p: stablePixelWidth, held: false };
+                }
+            }
+            return { p: stablePixelWidth, held: true };
+        }
+
+        function canvasPointFromPointer(e) {
+            const rect = canvas.getBoundingClientRect();
+            const sw = canvas.width || 1;
+            const sh = canvas.height || 1;
+            const scale = Math.max(rect.width / sw, rect.height / sh);
+            const drawnW = sw * scale;
+            const drawnH = sh * scale;
+            const offsetX = (rect.width - drawnW) / 2;
+            const offsetY = (rect.height - drawnH) / 2;
+            const x = (e.clientX - rect.left - offsetX) / scale;
+            const y = (e.clientY - rect.top - offsetY) / scale;
+            return {
+                x: Math.max(0, Math.min(sw, x)),
+                y: Math.max(0, Math.min(sh, y))
+            };
+        }
+
+        function normalizedBox(a, b) {
+            const x = Math.min(a.x, b.x);
+            const y = Math.min(a.y, b.y);
+            return { x, y, w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) };
+        }
+
+        function drawSelectionGuide() {
+            if (!selectingBook || !dragStart || !dragCurrent) return;
+            const b = normalizedBox(dragStart, dragCurrent);
+            ctx.save();
+            ctx.fillStyle = 'rgba(250, 204, 21, 0.10)';
+            ctx.strokeStyle = '#fde047';
+            ctx.lineWidth = Math.max(4, canvas.width / 250);
+            ctx.setLineDash([18, 10]);
+            ctx.fillRect(b.x, b.y, b.w, b.h);
+            ctx.strokeRect(b.x, b.y, b.w, b.h);
+            ctx.setLineDash([]);
+            ctx.font = `bold ${Math.max(20, canvas.width / 52)}px Pretendard`;
+            ctx.fillStyle = '#fde047';
+            ctx.strokeStyle = 'rgba(0,0,0,.85)';
+            ctx.lineWidth = 5;
+            const label = '책 표지 전체를 드래그';
+            ctx.strokeText(label, b.x, Math.max(28, b.y - 12));
+            ctx.fillText(label, b.x, Math.max(28, b.y - 12));
+            ctx.restore();
+        }
+
+        function beginBookSelection() {
+            selectingBook = true;
+            manualLock = false;
+            manualTargetBox = null;
+            lastGoodBookBox = null;
+            lastBookBox = null;
+            dragStart = null;
+            dragCurrent = null;
+            pSamples = [];
+            resetSmoother();
+            resetPixelStabilizer();
+            isCalibrated = false;
+            calibP = 0;
+            applyCalibToUi();
+            saveCalib();
+            selectBookLabel.textContent = '책을 드래그하세요';
+            btnSelectBook.classList.remove('bg-cyan-500/95', 'hover:bg-cyan-400');
+            btnSelectBook.classList.add('bg-amber-400', 'hover:bg-amber-300');
+            toastText.textContent = '세워진 책의 표지 전체를 손가락으로 드래그해 주세요';
+            setStatus('책 영역 지정 대기', 'amber');
+        }
+
+        function finishBookSelection(box) {
+            if (box.w < 40 || box.h < 60) {
+                toastText.textContent = '영역이 너무 작습니다 · 책 표지 전체를 다시 드래그해 주세요';
+                return;
+            }
+            if (box.h <= box.w) {
+                toastText.textContent = '책을 눕히지 말고 세운 뒤 다시 지정해 주세요';
+                return;
+            }
+            manualTargetBox = { ...box };
+            lastBookBox = { ...box };
+            lastGoodBookBox = null;
+            lastHitAt = performance.now();
+            manualLock = true;
+            selectingBook = false;
+            dragStart = null;
+            dragCurrent = null;
+            pSamples = [];
+            resetSmoother();
+            resetPixelStabilizer();
+            selectBookLabel.textContent = '책 다시 지정';
+            btnSelectBook.classList.remove('bg-amber-400', 'hover:bg-amber-300');
+            btnSelectBook.classList.add('bg-cyan-500/95', 'hover:bg-cyan-400');
+            toastText.textContent = '책 영역 고정됨 · AI가 이 책만 추적합니다 · 30cm에서 보정하세요';
+            setStatus('책 영역 고정됨 · 추적 중', 'green');
+        }
+
+        function isPlausibleLockedBox(box) {
+            if (!manualLock) return true;
+            const anchor = lastGoodBookBox || manualTargetBox;
+            if (!anchor) return true;
+            const a = boxCenter(anchor);
+            const b = boxCenter(box);
+            const centerJump = Math.hypot(a.cx - b.cx, a.cy - b.cy) / Math.max(1, Math.max(anchor.w, anchor.h));
+
+            // 사용자가 처음 지정한 박스는 '이 책'을 알려주는 용도다.
+            // 첫 AI 박스는 크기 차이를 강하게 제한하지 않고 위치/겹침만 확인해 기준으로 채택한다.
+            if (!lastGoodBookBox && manualTargetBox) {
+                return boxIou(manualTargetBox, box) >= 0.05 || centerJump <= 0.45;
+            }
+
+            const wJump = Math.abs(box.w - anchor.w) / Math.max(1, anchor.w);
+            const hJump = Math.abs(box.h - anchor.h) / Math.max(1, anchor.h);
+            return wJump <= BOX_SIZE_JUMP_MAX && hJump <= BOX_SIZE_JUMP_MAX && centerJump <= BOX_CENTER_JUMP_MAX;
+        }
+
         function saveCalib() {
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                    realWidthCm, focalLengthPx, isCalibrated, calibP,
+                    isCalibrated, calibP,
                     frameW: lastFrameSize.w, frameH: lastFrameSize.h
                 }));
             } catch (_) {}
@@ -231,21 +408,17 @@
             try {
                 const o = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
                 if (!o) return;
-                if (o.realWidthCm) realWidthCm = Number(o.realWidthCm);
-                if (o.focalLengthPx) focalLengthPx = Number(o.focalLengthPx);
                 if (o.calibP) calibP = Number(o.calibP);
-                isCalibrated = !!o.isCalibrated;
+                isCalibrated = !!o.isCalibrated && calibP > 0;
             } catch (_) {}
         }
 
         function applyCalibToUi() {
-            realWidthSlider.value = realWidthCm;
-            realWidthVal.textContent = `${realWidthCm.toFixed(1)} cm`;
-            if (isCalibrated && focalLengthPx > 0) {
-                focalDisplay.textContent = `${Math.round(focalLengthPx)} px`;
-                calibStatus.textContent = `보정됨 · f=${Math.round(focalLengthPx)}px`;
+            if (isCalibrated && calibP > 0) {
+                focalDisplay.textContent = `${Math.round(calibP)} px`;
+                calibStatus.textContent = `보정됨 · 기준 p=${Math.round(calibP)}px`;
                 calibStatus.className = 'text-[10px] text-emerald-300 text-right drop-shadow';
-                measureHint.textContent = '측정 중 · 책에 점선이 붙게 정면으로';
+                measureHint.textContent = '측정 중 · 책을 세워서 정면으로 보여 주세요';
                 measureHint.className = 'text-[10px] text-emerald-300/90 mt-1';
             } else {
                 isCalibrated = false;
@@ -298,8 +471,7 @@
                 const o = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
                 if (o.frameW && o.frameH && (o.frameW !== vw || o.frameH !== vh)) {
                     isCalibrated = false;
-                    focalLengthPx = 0;
-                    calibP = 0;
+                            calibP = 0;
                     applyCalibToUi();
                     toastText.textContent = '해상도가 바뀌었습니다. 다시 보정하세요';
                     saveCalib();
@@ -521,10 +693,16 @@
         }
 
         function clearTarget() {
-            lastBookBox = null;
             measFresh = null;
+            if (manualLock && lastGoodBookBox) {
+                lastBookBox = { ...lastGoodBookBox };
+                toastText.textContent = '책 추적이 잠시 끊김 · 지정한 책 기준을 유지합니다';
+                updateCalibButton();
+                return;
+            }
+            lastBookBox = null;
             resetSmoother();
-            toastText.textContent = '책이 안 보임 · 표지가 카메라에 더 크게 보이도록 해주세요';
+            toastText.textContent = '책이 안 보이거나 눕혀져 있음 · 책을 세워서 더 크게 보여 주세요';
             updateCalibButton();
         }
 
@@ -553,11 +731,26 @@
         }
 
         function pickBook(preds) {
-            const books = [];
+            let books = [];
             for (const pred of preds) {
                 if (isBook(pred) && pred.score >= TRACK_SCORE) books.push(toBox(pred));
             }
             if (!books.length) return null;
+
+            if (manualLock) {
+                const anchor = lastGoodBookBox || manualTargetBox;
+                if (anchor) {
+                    const ac = boxCenter(anchor);
+                    const reach = Math.max(anchor.w, anchor.h) * 0.9;
+                    const locked = books.filter((box) => {
+                        const c = boxCenter(box);
+                        const d = Math.hypot(c.cx - ac.cx, c.cy - ac.cy);
+                        return boxIou(anchor, box) >= 0.025 || d <= reach;
+                    });
+                    if (locked.length) books = locked;
+                }
+            }
+
             books.sort((a, b) => b.score - a.score);
 
             if (lastBookBox) {
@@ -569,7 +762,7 @@
                     const d = Math.hypot(c.cx - lc.cx, c.cy - lc.cy);
                     const iou = boxIou(lastBookBox, box);
                     if (iou < 0.03 && d > reach) continue;
-                    const rank = iou * 4 + box.score - d / 800;
+                    const rank = iou * 5 + box.score - d / 800;
                     if (!tracked || rank > tracked.rank) tracked = { box, rank };
                 }
                 if (tracked) return tracked.box;
@@ -579,14 +772,9 @@
         }
 
         function boxOverlay(x, y, w, h) {
-            // 책은 방향과 관계없이 인식 박스의 짧은 변을 거리 계산 기준으로 사용
-            const useWidthAxis = w <= h;
-            const p1 = useWidthAxis
-                ? { x, y: y + h / 2 }
-                : { x: x + w / 2, y };
-            const p2 = useWidthAxis
-                ? { x: x + w, y: y + h / 2 }
-                : { x: x + w / 2, y: y + h };
+            // 책은 세운 상태(세로형)만 허용하며, 가로 폭을 거리 계산 기준으로 사용
+            const p1 = { x, y: y + h / 2 };
+            const p2 = { x: x + w, y: y + h / 2 };
 
             const contour = [];
             const steps = 14;
@@ -610,21 +798,26 @@
         }
 
         function acceptBook(hit) {
-            const p = dist(hit.p1, hit.p2);
-            if (p < 6) {
+            const rawP = dist(hit.p1, hit.p2);
+            if (rawP < 6) {
                 clearTarget();
                 return false;
             }
+
+            const stable = stabilizePixelWidth(rawP);
+            const p = stable.p || rawP;
             applyDistanceFromP(p);
-            if (!clientTilted(hit.p1, hit.p2)) pushP(p);
+            if (!stable.held && !clientTilted(hit.p1, hit.p2)) pushP(p);
             updateCalibButton();
 
-            if (!isCalibrated) {
+            if (stable.held) {
+                toastText.textContent = `책 가림/박스 변화 감지 · 이전 기준 ${p.toFixed(0)}px 유지`;
+            } else if (!isCalibrated) {
                 toastText.textContent = pointsStable()
-                    ? '책 인식 · 약 30cm면 [보정]'
-                    : '책 점선 추적 중';
+                    ? '세워진 책 인식 안정 · 약 30cm면 [보정]'
+                    : '책 폭 안정화 중 · 잠깐 가만히 두세요';
             } else {
-                toastText.textContent = `지금 p=${p.toFixed(0)} / 보정 ${calibP.toFixed(0)} → ${resDistanceCm.textContent}cm`;
+                toastText.textContent = `안정 p=${p.toFixed(0)} / 보정 ${calibP.toFixed(0)} → ${resDistanceCm.textContent}cm`;
             }
             return true;
         }
@@ -658,15 +851,41 @@
                 }
                 const best = pickBook(scaled);
                 if (best) {
-                    lastBookBox = { x: best.x, y: best.y, w: best.w, h: best.h };
-                    measFresh = lastBookBox;
-                    lastHitAt = performance.now();
-                    acceptBook(boxOverlay(best.x, best.y, best.w, best.h));
-                    const axis = '짧은 변';
-                    const pose = best.h > best.w ? '세움' : '눕힘';
-                    setStatus(focusLocked
-                        ? `책 ${(best.score * 100).toFixed(0)}% · ${pose} · p=${axis} · 초점 고정`
-                        : `책 ${(best.score * 100).toFixed(0)}% · ${pose} · p=${axis}`, 'green');
+                    const isUpright = best.h > best.w;
+                    if (!isUpright) {
+                        if (!manualLock) {
+                            lastBookBox = null;
+                            measFresh = null;
+                            resetSmoother();
+                            livePixelWidth = 0;
+                            livePixelDisplay.textContent = '0';
+                            resDistanceCm.textContent = '--';
+                            resDistanceM.textContent = '(-- m)';
+                        }
+                        toastText.textContent = '책을 눕히지 말고 세워서 보여 주세요';
+                        setStatus('책 인식됨 · 세워 주세요', 'amber');
+                        updateCalibButton();
+                    } else if (!isPlausibleLockedBox(best)) {
+                        // 안경/손이 책 앞을 지나가 COCO 박스가 갑자기 작아진 프레임은 버린다.
+                        if (lastGoodBookBox) {
+                            lastBookBox = { ...lastGoodBookBox };
+                            measFresh = { ...lastGoodBookBox };
+                        }
+                        lastHitAt = performance.now();
+                        toastText.textContent = '책 일부 가림 감지 · 이전 책 크기 유지';
+                        setStatus('책 고정 추적 · 급격한 박스 변화 무시', 'amber');
+                    } else {
+                        lastBookBox = { x: best.x, y: best.y, w: best.w, h: best.h };
+                        lastGoodBookBox = { ...lastBookBox };
+                        measFresh = lastBookBox;
+                        lastHitAt = performance.now();
+                        acceptBook(boxOverlay(best.x, best.y, best.w, best.h));
+                        const axis = '가로 폭';
+                        const pose = '세움';
+                        setStatus(focusLocked
+                            ? `책 ${(best.score * 100).toFixed(0)}% · ${pose} · p=${axis} · 초점 고정`
+                            : `책 ${(best.score * 100).toFixed(0)}% · ${pose} · p=${axis}`, 'green');
+                    }
                 } else if (performance.now() - lastHitAt > HOLD_MS) {
                     clearTarget();
                 }
@@ -681,11 +900,12 @@
             if (!webcam.srcObject) return;
             const size = drawVideoToCanvas();
             if (size) {
-                detectBook();
+                if (!selectingBook) detectBook();
                 const meas = measFresh;
                 measFresh = null;
                 const box = stepSmoother(meas, performance.now());
                 drawOverlayBox(box);
+                drawSelectionGuide();
             }
             rafId = requestAnimationFrame(tick);
         }
@@ -718,28 +938,53 @@
             }
         }
 
-        realWidthSlider.addEventListener('input', (e) => {
-            realWidthCm = parseFloat(e.target.value);
-            realWidthVal.textContent = `${realWidthCm.toFixed(1)} cm`;
-            if (livePixelWidth > 0) applyDistanceFromP(livePixelWidth);
-            saveCalib();
-        });
-
         btnCalibrate30cm.addEventListener('click', () => {
             if (!pointsStable()) {
-                toastText.textContent = '점선이 책에 붙고 잠깐 가만히 둔 뒤 다시 누르세요';
+                toastText.textContent = '책을 세워 두고 점선이 붙은 뒤 잠깐 가만히 둔 후 다시 누르세요';
                 return;
             }
             const p = trimmedMean(pSamples);
             if (p <= 5) return;
             calibP = p;
-            focalLengthPx = (p * CALIB_DISTANCE_CM) / realWidthCm;
             isCalibrated = true;
             lastFrameSize = { w: canvas.width, h: canvas.height };
             applyCalibToUi();
             applyDistanceFromP(p);
             saveCalib();
             toastText.textContent = `보정됨 기준 p=${Math.round(calibP)}px = 30cm · 가까워지면 오른쪽 위 px가 커지고 cm은 작아집니다`;
+        });
+
+        btnSelectBook.addEventListener('click', beginBookSelection);
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (!selectingBook) return;
+            e.preventDefault();
+            try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+            dragStart = canvasPointFromPointer(e);
+            dragCurrent = { ...dragStart };
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!selectingBook || !dragStart) return;
+            e.preventDefault();
+            dragCurrent = canvasPointFromPointer(e);
+        });
+
+        const endSelection = (e) => {
+            if (!selectingBook || !dragStart) return;
+            e.preventDefault();
+            dragCurrent = canvasPointFromPointer(e);
+            const box = normalizedBox(dragStart, dragCurrent);
+            finishBookSelection(box);
+            if (!manualLock) {
+                dragStart = null;
+                dragCurrent = null;
+            }
+        };
+        canvas.addEventListener('pointerup', endSelection);
+        canvas.addEventListener('pointercancel', () => {
+            dragStart = null;
+            dragCurrent = null;
         });
 
         document.getElementById('btn-toggle-info').addEventListener('click', () => infoModal.classList.remove('hidden'));
@@ -750,6 +995,7 @@
         window.addEventListener('DOMContentLoaded', async () => {
             loadCalib();
             applyCalibToUi();
+            selectBookLabel.textContent = '책 영역 지정';
             updateCalibButton();
             try {
                 await loadCoco();
