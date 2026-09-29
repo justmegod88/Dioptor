@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title>스마트폰 거리 측정 · COCO-SSD 테스트</title>
+    <title>책 거리 측정 · COCO-SSD 테스트</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
@@ -44,11 +44,11 @@
         <div class="max-w-[1400px] mx-auto px-4 py-3 flex justify-between items-center gap-3">
             <div class="flex items-center space-x-3 min-w-0">
                 <div class="bg-gradient-to-tr from-cyan-500 to-indigo-600 text-gray-950 p-2.5 rounded-2xl shrink-0">
-                    <i class="fa-solid fa-mobile-screen-button text-xl"></i>
+                    <i class="fa-solid fa-book-open text-xl"></i>
                 </div>
                 <div class="min-w-0">
-                    <h1 class="font-bold text-lg text-gray-100 truncate">스마트폰 거리 측정</h1>
-                    <p class="text-xs text-gray-400 truncate">COCO-SSD · cell phone · 온디바이스 · 학습 없음</p>
+                    <h1 class="font-bold text-lg text-gray-100 truncate">책 거리 측정</h1>
+                    <p class="text-xs text-gray-400 truncate">COCO-SSD · book · 온디바이스 · 학습 없음</p>
                 </div>
             </div>
             <button id="btn-toggle-info" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shrink-0">
@@ -75,7 +75,7 @@
 
                 <div class="absolute bottom-3 left-3 right-3 z-10 flex items-end justify-between gap-2">
                     <div class="max-w-[55%] bg-gray-900/90 backdrop-blur border border-cyan-500/40 text-cyan-200 px-3 py-2 rounded-2xl text-xs">
-                        <span id="toast-text">카메라 앞에 스마트폰을 가로로 보여 주세요</span>
+                        <span id="toast-text">카메라 앞에 책 표지가 보이도록 보여 주세요</span>
                     </div>
                     <div class="flex flex-col items-stretch gap-1 shrink-0">
                         <button id="btn-calibrate-30cm" class="bg-amber-500 hover:bg-amber-400 text-gray-950 border border-amber-300 font-bold px-3 py-2.5 rounded-xl text-xs shadow-lg disabled:opacity-40 disabled:cursor-not-allowed">
@@ -96,7 +96,7 @@
 
         <div class="lg:col-span-8 bg-gradient-to-r from-cyan-950 via-gray-900 to-indigo-950 border border-cyan-800/40 p-4 md:p-5 rounded-2xl flex items-center justify-between">
                 <div>
-                    <div class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-1">카메라 ↔ 스마트폰 거리</div>
+                    <div class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-1">카메라 ↔ 책 거리</div>
                     <div class="flex items-baseline gap-2">
                         <span id="res-distance-cm" class="text-5xl md:text-6xl font-black text-white">--</span>
                         <span class="text-cyan-300 font-extrabold text-xl">cm</span>
@@ -114,11 +114,11 @@
         <div class="lg:col-span-4 bg-gray-900/70 border border-gray-800 rounded-2xl p-4 flex flex-col gap-4">
             <div>
                 <h2 class="font-bold text-gray-200 text-sm flex items-center gap-2">
-                    <i class="fa-solid fa-mobile-screen-button text-cyan-400"></i> 테스트 방법
+                    <i class="fa-solid fa-book-open text-cyan-400"></i> 테스트 방법
                 </h2>
                 <ol class="text-[11px] text-gray-400 mt-2 space-y-1.5 list-decimal list-inside leading-relaxed">
-                    <li>카메라를 <b class="text-gray-200">고정</b>하고, 스마트폰을 <b class="text-gray-200">앞에</b> 둡니다. (화면이 카메라를 향해도 됩니다)</li>
-                    <li>점선이 폰에 붙으면, 화면에서 <b class="text-gray-200">가로로 보이는 변</b>의 실제 길이를 W에 맞춥니다. 세우면 약 7.5cm, 눕히면 약 15cm.</li>
+                    <li>카메라를 <b class="text-gray-200">고정</b>하고, 책을 <b class="text-gray-200">앞에</b> 둡니다. (표지가 카메라를 향하도록 두면 인식이 쉽습니다)</li>
+                    <li>점선이 책에 붙으면, 책 표지의 <b class="text-gray-200">짧은 변</b> 실제 길이를 W에 맞춥니다.</li>
                     <li>약 <b class="text-gray-200">30cm</b>에 두고 보정합니다.</li>
                     <li>앞뒤로 옮기면 거리가 변해야 합니다.</li>
                 </ol>
@@ -126,11 +126,11 @@
 
             <div class="space-y-2 bg-gray-950 p-3 rounded-xl border border-gray-800">
                 <div class="flex justify-between text-xs">
-                    <label class="font-semibold text-gray-300">화면 가로에 해당하는 실제 길이 (W)</label>
-                    <span id="real-width-val" class="text-cyan-400 font-mono font-bold">7.5 cm</span>
+                    <label class="font-semibold text-gray-300">책의 짧은 변 실제 길이 (W)</label>
+                    <span id="real-width-val" class="text-cyan-400 font-mono font-bold">15.0 cm</span>
                 </div>
-                <input type="range" id="real-width-slider" min="5.0" max="18.0" step="0.1" value="7.5" class="w-full accent-cyan-400 h-2">
-                <p class="text-[10px] text-gray-500">세우면 약 7.5cm, 눕히면 약 15cm. 보정 버튼은 카메라 화면 오른쪽 아래에 있습니다.</p>
+                <input type="range" id="real-width-slider" min="8.0" max="35.0" step="0.1" value="15.0" class="w-full accent-cyan-400 h-2">
+                <p class="text-[10px] text-gray-500">책 표지의 짧은 변 실제 길이를 입력하세요. 세로/가로 방향이 바뀌어도 짧은 변을 기준으로 추적합니다.</p>
             </div>
         </div>
     </main>
@@ -142,10 +142,10 @@
                 <button id="btn-close-info" class="text-gray-400"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <ul class="text-xs text-gray-300 space-y-2 list-disc list-inside leading-relaxed">
-                <li>브라우저에서 <b>COCO-SSD</b>가 <b>cell phone</b>만 찾습니다. 학습·서버 전송 없습니다.</li>
+                <li>브라우저에서 <b>COCO-SSD</b>가 <b>book</b>만 찾습니다. 학습·서버 전송 없습니다.</li>
                 <li>거리 cm = (실제 가로 W × 이 카메라 f) ÷ 화면 픽셀 폭 p</li>
-                <li>p는 인식된 폰 박스의 가로입니다.</li>
-                <li>안경은 COCO에 없어서, 파이프라인을 폰으로 먼저 검증합니다.</li>
+                <li>p는 인식된 책 박스에서 선택된 기준 변의 픽셀 길이입니다.</li>
+                <li>COCO-SSD의 기본 <b>book</b> 클래스를 이용해 책을 직접 인식합니다.</li>
             </ul>
             <button id="btn-modal-ok" class="w-full bg-cyan-500 text-gray-950 font-bold py-2.5 rounded-2xl text-xs">확인</button>
         </div>
@@ -160,7 +160,7 @@
         const MAX_BOXES = 20;
         const INFER_MAX = 640;
         const FAR_SIDE = 90;
-        const STORAGE_KEY = 'phone_distance_calib_v2_coco';
+        const STORAGE_KEY = 'book_distance_calib_v2_coco';
 
         const webcam = document.getElementById('webcam');
         const canvas = document.getElementById('output-canvas');
@@ -184,7 +184,7 @@
         const cameraError = document.getElementById('camera-error');
         const infoModal = document.getElementById('info-modal');
 
-        let realWidthCm = 7.5;
+        let realWidthCm = 15.0;
         let focalLengthPx = 0;
         let isCalibrated = false;
         let videoTrack = null;
@@ -194,7 +194,7 @@
         let lastHitAt = 0;
         let cocoModel = null;
         let detecting = false;
-        let lastPhoneBox = null;
+        let lastBookBox = null;
         let calibP = 0;
         let measFresh = null;
         const smoother = {
@@ -245,7 +245,7 @@
                 focalDisplay.textContent = `${Math.round(focalLengthPx)} px`;
                 calibStatus.textContent = `보정됨 · f=${Math.round(focalLengthPx)}px`;
                 calibStatus.className = 'text-[10px] text-emerald-300 text-right drop-shadow';
-                measureHint.textContent = '측정 중 · 폰에 점선이 붙게 정면으로';
+                measureHint.textContent = '측정 중 · 책에 점선이 붙게 정면으로';
                 measureHint.className = 'text-[10px] text-emerald-300/90 mt-1';
             } else {
                 isCalibrated = false;
@@ -483,7 +483,7 @@
             ctx.lineWidth = 6;
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
             ctx.fillStyle = '#fde047';
-            const label = `폰 ${Math.round(livePixelWidth)}px`;
+            const label = `책 ${Math.round(livePixelWidth)}px`; 
             const lx = Math.min(hit.p1.x, hit.p2.x);
             const ly = Math.max(28, Math.min(hit.p1.y, hit.p2.y) - 18);
             ctx.strokeText(label, lx, ly);
@@ -521,10 +521,10 @@
         }
 
         function clearTarget() {
-            lastPhoneBox = null;
+            lastBookBox = null;
             measFresh = null;
             resetSmoother();
-            toastText.textContent = '스마트폰이 안 보임 · 화면을 카메라에 더 크게';
+            toastText.textContent = '책이 안 보임 · 표지가 카메라에 더 크게 보이도록 해주세요';
             updateCalibButton();
         }
 
@@ -543,31 +543,31 @@
             return { x, y, w, h, score: pred.score };
         }
 
-        function isPhone(pred) {
+        function isBook(pred) {
             const c = (pred.class || '').toLowerCase();
-            return c === 'cell phone' || c === 'phone' || c === 'mobile phone';
+            return c === 'book';
         }
 
         function boxCenter(b) {
             return { cx: b.x + b.w / 2, cy: b.y + b.h / 2 };
         }
 
-        function pickPhone(preds) {
-            const phones = [];
+        function pickBook(preds) {
+            const books = [];
             for (const pred of preds) {
-                if (isPhone(pred) && pred.score >= TRACK_SCORE) phones.push(toBox(pred));
+                if (isBook(pred) && pred.score >= TRACK_SCORE) books.push(toBox(pred));
             }
-            if (!phones.length) return null;
-            phones.sort((a, b) => b.score - a.score);
+            if (!books.length) return null;
+            books.sort((a, b) => b.score - a.score);
 
-            if (lastPhoneBox) {
-                const lc = boxCenter(lastPhoneBox);
-                const reach = Math.max(90, lastPhoneBox.w, lastPhoneBox.h);
+            if (lastBookBox) {
+                const lc = boxCenter(lastBookBox);
+                const reach = Math.max(90, lastBookBox.w, lastBookBox.h);
                 let tracked = null;
-                for (const box of phones) {
+                for (const box of books) {
                     const c = boxCenter(box);
                     const d = Math.hypot(c.cx - lc.cx, c.cy - lc.cy);
-                    const iou = boxIou(lastPhoneBox, box);
+                    const iou = boxIou(lastBookBox, box);
                     if (iou < 0.03 && d > reach) continue;
                     const rank = iou * 4 + box.score - d / 800;
                     if (!tracked || rank > tracked.rank) tracked = { box, rank };
@@ -575,12 +575,12 @@
                 if (tracked) return tracked.box;
             }
 
-            return phones.find((box) => box.score >= MIN_SCORE) || phones[0];
+            return books.find((box) => box.score >= MIN_SCORE) || books[0];
         }
 
         function boxOverlay(x, y, w, h) {
-            const useShort = realWidthCm < 10;
-            const useWidthAxis = useShort ? (w <= h) : (w >= h);
+            // 책은 방향과 관계없이 인식 박스의 짧은 변을 거리 계산 기준으로 사용
+            const useWidthAxis = w <= h;
             const p1 = useWidthAxis
                 ? { x, y: y + h / 2 }
                 : { x: x + w / 2, y };
@@ -609,7 +609,7 @@
             return { p1, p2, contour, dots };
         }
 
-        function acceptPhone(hit) {
+        function acceptBook(hit) {
             const p = dist(hit.p1, hit.p2);
             if (p < 6) {
                 clearTarget();
@@ -621,22 +621,22 @@
 
             if (!isCalibrated) {
                 toastText.textContent = pointsStable()
-                    ? '스마트폰 인식 · 약 30cm면 [보정]'
-                    : '스마트폰 점선 추적 중';
+                    ? '책 인식 · 약 30cm면 [보정]'
+                    : '책 점선 추적 중';
             } else {
                 toastText.textContent = `지금 p=${p.toFixed(0)} / 보정 ${calibP.toFixed(0)} → ${resDistanceCm.textContent}cm`;
             }
             return true;
         }
 
-        async function detectPhone() {
+        async function detectBook() {
             if (!cocoModel || detecting || webcam.readyState < 2) return;
             if (canvas.width < 2 || canvas.height < 2) return;
             detecting = true;
             try {
                 const vw = canvas.width;
                 const vh = canvas.height;
-                const close = lastPhoneBox && Math.min(lastPhoneBox.w, lastPhoneBox.h) >= FAR_SIDE;
+                const close = lastBookBox && Math.min(lastBookBox.w, lastBookBox.h) >= FAR_SIDE;
                 const scale = close ? Math.min(1, INFER_MAX / Math.max(vw, vh)) : 1;
                 const iw = Math.max(16, Math.round(vw * scale));
                 const ih = Math.max(16, Math.round(vh * scale));
@@ -656,17 +656,17 @@
                         bbox: [x * inv, y * inv, w * inv, h * inv]
                     });
                 }
-                const best = pickPhone(scaled);
+                const best = pickBook(scaled);
                 if (best) {
-                    lastPhoneBox = { x: best.x, y: best.y, w: best.w, h: best.h };
-                    measFresh = lastPhoneBox;
+                    lastBookBox = { x: best.x, y: best.y, w: best.w, h: best.h };
+                    measFresh = lastBookBox;
                     lastHitAt = performance.now();
-                    acceptPhone(boxOverlay(best.x, best.y, best.w, best.h));
-                    const axis = realWidthCm < 10 ? '짧은 변' : '긴 변';
+                    acceptBook(boxOverlay(best.x, best.y, best.w, best.h));
+                    const axis = '짧은 변';
                     const pose = best.h > best.w ? '세움' : '눕힘';
                     setStatus(focusLocked
-                        ? `폰 ${(best.score * 100).toFixed(0)}% · ${pose} · p=${axis} · 초점 고정`
-                        : `폰 ${(best.score * 100).toFixed(0)}% · ${pose} · p=${axis}`, 'green');
+                        ? `책 ${(best.score * 100).toFixed(0)}% · ${pose} · p=${axis} · 초점 고정`
+                        : `책 ${(best.score * 100).toFixed(0)}% · ${pose} · p=${axis}`, 'green');
                 } else if (performance.now() - lastHitAt > HOLD_MS) {
                     clearTarget();
                 }
@@ -681,7 +681,7 @@
             if (!webcam.srcObject) return;
             const size = drawVideoToCanvas();
             if (size) {
-                detectPhone();
+                detectBook();
                 const meas = measFresh;
                 measFresh = null;
                 const box = stepSmoother(meas, performance.now());
@@ -694,7 +694,7 @@
             setStatus('COCO-SSD 모델 로딩 중...', 'amber');
             if (window.tf && tf.ready) await tf.ready();
             cocoModel = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-            setStatus('COCO-SSD 준비됨 · cell phone', 'green');
+            setStatus('COCO-SSD 준비됨 · book', 'green');
         }
 
         async function startCamera() {
@@ -727,7 +727,7 @@
 
         btnCalibrate30cm.addEventListener('click', () => {
             if (!pointsStable()) {
-                toastText.textContent = '점선이 폰에 붙고 잠깐 가만히 둔 뒤 다시 누르세요';
+                toastText.textContent = '점선이 책에 붙고 잠깐 가만히 둔 뒤 다시 누르세요';
                 return;
             }
             const p = trimmedMean(pSamples);
