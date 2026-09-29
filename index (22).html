@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>스마트폰 거리 측정 · COCO-SSD 테스트</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background-color: #030712;
+            color: #f3f4f6;
+            overflow-x: hidden;
+            user-select: none;
+        }
+        .glow-effect { box-shadow: 0 0 25px -5px rgba(14, 165, 233, 0.35); }
+        #stage {
+            min-height: calc(100dvh - 11.5rem);
+            height: calc(100dvh - 11.5rem);
+            background: #000;
+        }
+        @media (max-width: 1023px) {
+            #stage {
+                min-height: calc(100dvh - 12.5rem);
+                height: calc(100dvh - 12.5rem);
+            }
+        }
+        #output-canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #000;
+            display: block;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-gray-950">
+
+    <header class="bg-gray-900/90 backdrop-blur-md border-b border-gray-800 sticky top-0 z-30">
+        <div class="max-w-[1400px] mx-auto px-4 py-3 flex justify-between items-center gap-3">
+            <div class="flex items-center space-x-3 min-w-0">
+                <div class="bg-gradient-to-tr from-cyan-500 to-indigo-600 text-gray-950 p-2.5 rounded-2xl shrink-0">
+                    <i class="fa-solid fa-mobile-screen-button text-xl"></i>
+                </div>
+                <div class="min-w-0">
+                    <h1 class="font-bold text-lg text-gray-100 truncate">스마트폰 거리 측정</h1>
+                    <p class="text-xs text-gray-400 truncate">COCO-SSD · cell phone · 온디바이스 · 학습 없음</p>
+                </div>
+            </div>
+            <button id="btn-toggle-info" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shrink-0">
+                <i class="fa-solid fa-circle-question text-cyan-400"></i> 팁
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 w-full mx-auto p-2 md:p-3 grid grid-cols-1 lg:grid-cols-12 gap-2 md:gap-3">
+
+        <div class="lg:col-span-12">
+            <div id="stage" class="relative rounded-2xl overflow-hidden border border-gray-800 shadow-2xl glow-effect">
+                <video id="webcam" class="absolute inset-0 w-full h-full opacity-0 pointer-events-none" playsinline muted></video>
+                <canvas id="output-canvas"></canvas>
+
+                <div class="absolute top-3 left-3 bg-gray-900/90 backdrop-blur border border-gray-700 px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2">
+                    <span id="ai-status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span id="ai-status-text" class="text-gray-200">COCO-SSD 로딩 중...</span>
+                </div>
+
+                <div class="absolute top-3 right-3 bg-gray-900/90 backdrop-blur border border-gray-700 px-3 py-1.5 rounded-2xl text-xs font-mono text-cyan-400">
+                    px: <strong id="live-pixel-display" class="text-white text-sm">0</strong>
+                </div>
+
+                <div class="absolute bottom-3 left-3 right-3 z-10 flex items-end justify-between gap-2">
+                    <div class="max-w-[55%] bg-gray-900/90 backdrop-blur border border-cyan-500/40 text-cyan-200 px-3 py-2 rounded-2xl text-xs">
+                        <span id="toast-text">카메라 앞에 스마트폰을 가로로 보여 주세요</span>
+                    </div>
+                    <div class="flex flex-col items-stretch gap-1 shrink-0">
+                        <button id="btn-calibrate-30cm" class="bg-amber-500 hover:bg-amber-400 text-gray-950 border border-amber-300 font-bold px-3 py-2.5 rounded-xl text-xs shadow-lg disabled:opacity-40 disabled:cursor-not-allowed">
+                            지금 거리 = 30cm 로 보정
+                        </button>
+                        <p id="calib-status" class="text-[10px] text-gray-200 text-right drop-shadow">미보정</p>
+                    </div>
+                </div>
+
+                <div id="camera-error" class="absolute inset-0 bg-gray-950/95 flex flex-col items-center justify-center p-6 text-center hidden z-20">
+                    <i class="fa-solid fa-video-slash text-5xl text-rose-500 mb-3"></i>
+                    <h3 class="font-bold text-gray-100 text-lg mb-1">웹캠 접근 불가</h3>
+                    <p class="text-xs text-gray-400 max-w-sm mb-4">카메라 권한이 필요합니다. HTTPS 또는 localhost에서 열어 주세요.</p>
+                    <button id="btn-restart-cam" class="bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold px-5 py-2.5 rounded-xl text-xs">카메라 다시 시작</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-8 bg-gradient-to-r from-cyan-950 via-gray-900 to-indigo-950 border border-cyan-800/40 p-4 md:p-5 rounded-2xl flex items-center justify-between">
+                <div>
+                    <div class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-1">카메라 ↔ 스마트폰 거리</div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="res-distance-cm" class="text-5xl md:text-6xl font-black text-white">--</span>
+                        <span class="text-cyan-300 font-extrabold text-xl">cm</span>
+                        <span id="res-distance-m" class="text-gray-400 text-sm font-mono">(-- m)</span>
+                    </div>
+                    <p id="measure-hint" class="text-[10px] text-amber-300/90 mt-1">보정 전 · 오른쪽에서 이 카메라 1회 보정이 필요합니다</p>
+                </div>
+                <div class="text-right border-l border-gray-800 pl-4">
+                    <div class="text-xs text-gray-400">이 카메라 f</div>
+                    <div id="focal-display" class="font-mono text-cyan-400 font-bold text-lg">--</div>
+                    <div id="focus-lock-label" class="text-[10px] text-gray-500 mt-1">초점: 확인 전</div>
+                </div>
+        </div>
+
+        <div class="lg:col-span-4 bg-gray-900/70 border border-gray-800 rounded-2xl p-4 flex flex-col gap-4">
+            <div>
+                <h2 class="font-bold text-gray-200 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-mobile-screen-button text-cyan-400"></i> 테스트 방법
+                </h2>
+                <ol class="text-[11px] text-gray-400 mt-2 space-y-1.5 list-decimal list-inside leading-relaxed">
+                    <li>카메라를 <b class="text-gray-200">고정</b>하고, 스마트폰을 <b class="text-gray-200">앞에</b> 둡니다. (화면이 카메라를 향해도 됩니다)</li>
+                    <li>점선이 폰에 붙으면, 화면에서 <b class="text-gray-200">가로로 보이는 변</b>의 실제 길이를 W에 맞춥니다. 세우면 약 7.5cm, 눕히면 약 15cm.</li>
+                    <li>약 <b class="text-gray-200">30cm</b>에 두고 보정합니다.</li>
+                    <li>앞뒤로 옮기면 거리가 변해야 합니다.</li>
+                </ol>
+            </div>
+
+            <div class="space-y-2 bg-gray-950 p-3 rounded-xl border border-gray-800">
+                <div class="flex justify-between text-xs">
+                    <label class="font-semibold text-gray-300">화면 가로에 해당하는 실제 길이 (W)</label>
+                    <span id="real-width-val" class="text-cyan-400 font-mono font-bold">7.5 cm</span>
+                </div>
+                <input type="range" id="real-width-slider" min="5.0" max="18.0" step="0.1" value="7.5" class="w-full accent-cyan-400 h-2">
+                <p class="text-[10px] text-gray-500">세우면 약 7.5cm, 눕히면 약 15cm. 보정 버튼은 카메라 화면 오른쪽 아래에 있습니다.</p>
+            </div>
+        </div>
+    </main>
+
+    <div id="info-modal" class="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-gray-900 border border-gray-800 rounded-3xl max-w-md w-full p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-3">
+                <h3 class="font-bold text-gray-100">이 테스트가 하는 일</h3>
+                <button id="btn-close-info" class="text-gray-400"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <ul class="text-xs text-gray-300 space-y-2 list-disc list-inside leading-relaxed">
+                <li>브라우저에서 <b>COCO-SSD</b>가 <b>cell phone</b>만 찾습니다. 학습·서버 전송 없습니다.</li>
+                <li>거리 cm = (실제 가로 W × 이 카메라 f) ÷ 화면 픽셀 폭 p</li>
+                <li>p는 인식된 폰 박스의 가로입니다.</li>
+                <li>안경은 COCO에 없어서, 파이프라인을 폰으로 먼저 검증합니다.</li>
+            </ul>
+            <button id="btn-modal-ok" class="w-full bg-cyan-500 text-gray-950 font-bold py-2.5 rounded-2xl text-xs">확인</button>
+        </div>
+    </div>
+<script>
+        const CALIB_DISTANCE_CM = 30;
+        const P_SAMPLES = 6;
+        const YAW_RATIO_MAX = 0.27;
+        const HOLD_MS = 900;
+        const MIN_SCORE = 0.1;
+        const TRACK_SCORE = 0.06;
+        const MAX_BOXES = 20;
+        const INFER_MAX = 640;
+        const FAR_SIDE = 90;
+        const STORAGE_KEY = 'phone_distance_calib_v2_coco';
+
+        const webcam = document.getElementById('webcam');
+        const canvas = document.getElementById('output-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const inferCanvas = document.createElement('canvas');
+        const inferCtx = inferCanvas.getContext('2d', { willReadFrequently: true });
+
+        const aiStatusDot = document.getElementById('ai-status-dot');
+        const aiStatusText = document.getElementById('ai-status-text');
+        const livePixelDisplay = document.getElementById('live-pixel-display');
+        const resDistanceCm = document.getElementById('res-distance-cm');
+        const resDistanceM = document.getElementById('res-distance-m');
+        const toastText = document.getElementById('toast-text');
+        const realWidthVal = document.getElementById('real-width-val');
+        const realWidthSlider = document.getElementById('real-width-slider');
+        const focalDisplay = document.getElementById('focal-display');
+        const btnCalibrate30cm = document.getElementById('btn-calibrate-30cm');
+        const calibStatus = document.getElementById('calib-status');
+        const measureHint = document.getElementById('measure-hint');
+        const focusLockLabel = document.getElementById('focus-lock-label');
+        const cameraError = document.getElementById('camera-error');
+        const infoModal = document.getElementById('info-modal');
+
+        let realWidthCm = 7.5;
+        let focalLengthPx = 0;
+        let isCalibrated = false;
+        let videoTrack = null;
+        let focusLocked = false;
+        let rafId = 0;
+        let lastFrameSize = { w: 0, h: 0 };
+        let lastHitAt = 0;
+        let cocoModel = null;
+        let detecting = false;
+        let lastPhoneBox = null;
+        let calibP = 0;
+        let measFresh = null;
+        const smoother = {
+            on: false, t: 0,
+            x: 0, y: 0, w: 0, h: 0,
+            vx: 0, vy: 0, vw: 0, vh: 0
+        };
+
+        let targetP1 = null;
+        let targetP2 = null;
+        let currentP1 = null;
+        let currentP2 = null;
+        let targetContour = null;
+        let currentContour = null;
+        let targetDots = null;
+        let currentDots = null;
+        let livePixelWidth = 0;
+        let pSamples = [];
+
+        function dist(a, b) {
+            return Math.hypot(b.x - a.x, b.y - a.y);
+        }
+
+        function saveCalib() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    realWidthCm, focalLengthPx, isCalibrated, calibP,
+                    frameW: lastFrameSize.w, frameH: lastFrameSize.h
+                }));
+            } catch (_) {}
+        }
+
+        function loadCalib() {
+            try {
+                const o = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+                if (!o) return;
+                if (o.realWidthCm) realWidthCm = Number(o.realWidthCm);
+                if (o.focalLengthPx) focalLengthPx = Number(o.focalLengthPx);
+                if (o.calibP) calibP = Number(o.calibP);
+                isCalibrated = !!o.isCalibrated;
+            } catch (_) {}
+        }
+
+        function applyCalibToUi() {
+            realWidthSlider.value = realWidthCm;
+            realWidthVal.textContent = `${realWidthCm.toFixed(1)} cm`;
+            if (isCalibrated && focalLengthPx > 0) {
+                focalDisplay.textContent = `${Math.round(focalLengthPx)} px`;
+                calibStatus.textContent = `보정됨 · f=${Math.round(focalLengthPx)}px`;
+                calibStatus.className = 'text-[10px] text-emerald-300 text-right drop-shadow';
+                measureHint.textContent = '측정 중 · 폰에 점선이 붙게 정면으로';
+                measureHint.className = 'text-[10px] text-emerald-300/90 mt-1';
+            } else {
+                isCalibrated = false;
+                focalDisplay.textContent = '미보정';
+                calibStatus.textContent = '미보정 · 약 30cm에서 누르세요';
+                calibStatus.className = 'text-[10px] text-gray-200 text-right drop-shadow';
+                measureHint.textContent = '보정 전 · cm를 쓰려면 이 카메라 1회 보정이 필요합니다';
+                measureHint.className = 'text-[10px] text-amber-300/90 mt-1';
+            }
+        }
+
+        function setStatus(text, color) {
+            aiStatusText.textContent = text;
+            const map = {
+                amber: 'bg-amber-500 animate-pulse',
+                green: 'bg-emerald-400 animate-pulse',
+                red: 'bg-rose-500',
+                gray: 'bg-gray-500'
+            };
+            aiStatusDot.className = `w-2.5 h-2.5 rounded-full ${map[color] || map.amber}`;
+        }
+
+        function trimmedMean(values) {
+            if (!values.length) return 0;
+            const s = values.slice().sort((a, b) => a - b);
+            if (s.length >= 5) s.pop(), s.shift();
+            return s.reduce((a, b) => a + b, 0) / s.length;
+        }
+
+        function pVariance(values) {
+            if (values.length < 3) return Infinity;
+            const m = values.reduce((a, b) => a + b, 0) / values.length;
+            return values.reduce((a, b) => a + (b - m) ** 2, 0) / values.length;
+        }
+
+        function pointsStable() {
+            if (!(livePixelWidth > 12) || pSamples.length < 4) return false;
+            const m = trimmedMean(pSamples);
+            if (m < 12) return false;
+            return pVariance(pSamples) <= (m * 0.12) ** 2;
+        }
+
+        function updateCalibButton() {
+            btnCalibrate30cm.disabled = !pointsStable();
+        }
+
+        function invalidateCalibIfResolutionChanged(vw, vh) {
+            if (!isCalibrated) return;
+            try {
+                const o = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+                if (o.frameW && o.frameH && (o.frameW !== vw || o.frameH !== vh)) {
+                    isCalibrated = false;
+                    focalLengthPx = 0;
+                    calibP = 0;
+                    applyCalibToUi();
+                    toastText.textContent = '해상도가 바뀌었습니다. 다시 보정하세요';
+                    saveCalib();
+                }
+            } catch (_) {}
+        }
+
+        function stopCameraTracks() {
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = 0;
+            try {
+                if (webcam.srcObject) {
+                    webcam.srcObject.getTracks().forEach((t) => t.stop());
+                    webcam.srcObject = null;
+                }
+            } catch (_) {}
+            videoTrack = null;
+        }
+
+        async function tryLockFocus(track) {
+            focusLocked = false;
+            const tries = [
+                { advanced: [{ focusMode: 'manual' }] },
+                { focusMode: 'manual' }
+            ];
+            for (const c of tries) {
+                try { await track.applyConstraints(c); } catch (_) {}
+            }
+            const s = track.getSettings ? track.getSettings() : {};
+            focusLocked = s.focusMode === 'manual';
+            if (focusLocked) {
+                focusLockLabel.textContent = '초점 고정';
+                focusLockLabel.className = 'text-[10px] text-emerald-400 mt-1';
+            } else {
+                focusLockLabel.textContent = '자동초점 · 측정 중 카메라를 건드리지 마세요';
+                focusLockLabel.className = 'text-[10px] text-amber-300 mt-1';
+            }
+            return s;
+        }
+
+        async function openStream() {
+            const base = {
+                audio: false,
+                video: {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    facingMode: { ideal: 'environment' }
+                }
+            };
+            try {
+                return await navigator.mediaDevices.getUserMedia(base);
+            } catch (_) {
+                return await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+            }
+        }
+
+        function drawVideoToCanvas() {
+            const vw = webcam.videoWidth || 0;
+            const vh = webcam.videoHeight || 0;
+            if (vw < 2 || vh < 2) return null;
+            if (canvas.width !== vw || canvas.height !== vh) {
+                canvas.width = vw;
+                canvas.height = vh;
+                invalidateCalibIfResolutionChanged(vw, vh);
+            }
+            lastFrameSize = { w: vw, h: vh };
+            ctx.drawImage(webcam, 0, 0, vw, vh);
+            return { vw, vh };
+        }
+
+        function resetSmoother() {
+            smoother.on = false;
+            smoother.vx = smoother.vy = smoother.vw = smoother.vh = 0;
+        }
+
+        function clampV(v) {
+            return Math.max(-3500, Math.min(3500, v));
+        }
+
+        function stepSmoother(meas, now) {
+            if (lastHitAt && now - lastHitAt > HOLD_MS) {
+                resetSmoother();
+                return null;
+            }
+            if (!smoother.on) {
+                if (!meas) return null;
+                smoother.on = true;
+                smoother.t = now;
+                smoother.x = meas.x;
+                smoother.y = meas.y;
+                smoother.w = meas.w;
+                smoother.h = meas.h;
+                smoother.vx = smoother.vy = smoother.vw = smoother.vh = 0;
+                return { x: meas.x, y: meas.y, w: meas.w, h: meas.h };
+            }
+            const dt = Math.min(0.05, Math.max(0.008, (now - smoother.t) / 1000));
+            smoother.t = now;
+            let x = smoother.x + smoother.vx * dt;
+            let y = smoother.y + smoother.vy * dt;
+            let w = Math.max(8, smoother.w + smoother.vw * dt);
+            let h = Math.max(8, smoother.h + smoother.vh * dt);
+            if (meas) {
+                const ap = 0.4;
+                const as = 0.32;
+                const av = 0.24;
+                const nx = x + (meas.x - x) * ap;
+                const ny = y + (meas.y - y) * ap;
+                const nw = w + (meas.w - w) * as;
+                const nh = h + (meas.h - h) * as;
+                smoother.vx = clampV(smoother.vx * (1 - av) + ((nx - smoother.x) / dt) * av);
+                smoother.vy = clampV(smoother.vy * (1 - av) + ((ny - smoother.y) / dt) * av);
+                smoother.vw = clampV(smoother.vw * (1 - av) + ((nw - smoother.w) / dt) * av);
+                smoother.vh = clampV(smoother.vh * (1 - av) + ((nh - smoother.h) / dt) * av);
+                x = nx;
+                y = ny;
+                w = nw;
+                h = nh;
+            } else {
+                smoother.vx *= 0.9;
+                smoother.vy *= 0.9;
+                smoother.vw *= 0.9;
+                smoother.vh *= 0.9;
+            }
+            smoother.x = x;
+            smoother.y = y;
+            smoother.w = w;
+            smoother.h = h;
+            return { x, y, w, h };
+        }
+
+        function drawOverlayBox(box) {
+            if (!box) return;
+            const hit = boxOverlay(box.x, box.y, box.w, box.h);
+            ctx.save();
+            const strokeContour = (color, width, dash) => {
+                if (!hit.contour || hit.contour.length < 4) return;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = width;
+                ctx.setLineDash(dash);
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(hit.contour[0].x, hit.contour[0].y);
+                for (let i = 1; i < hit.contour.length; i++) {
+                    ctx.lineTo(hit.contour[i].x, hit.contour[i].y);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            };
+            strokeContour('rgba(0, 0, 0, 0.85)', Math.max(12, canvas.width / 90), [22, 12]);
+            strokeContour('#22d3ee', Math.max(6, canvas.width / 140), [22, 12]);
+            ctx.setLineDash([]);
+            const rDot = Math.max(4.5, canvas.width / 220);
+            ctx.fillStyle = '#67e8f9';
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < hit.dots.length; i++) {
+                const p = hit.dots[i];
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, rDot, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            const r = Math.max(11, canvas.width / 90);
+            const drawPin = (pt) => {
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, r + 3, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+                ctx.fillStyle = '#facc15';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            };
+            drawPin(hit.p1);
+            drawPin(hit.p2);
+            ctx.font = `bold ${Math.max(22, canvas.width / 42)}px Pretendard`;
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+            ctx.fillStyle = '#fde047';
+            const label = `폰 ${Math.round(livePixelWidth)}px`;
+            const lx = Math.min(hit.p1.x, hit.p2.x);
+            const ly = Math.max(28, Math.min(hit.p1.y, hit.p2.y) - 18);
+            ctx.strokeText(label, lx, ly);
+            ctx.fillText(label, lx, ly);
+            ctx.restore();
+        }
+
+        function clientTilted(p1, p2) {
+            const p = dist(p1, p2);
+            if (p < 8) return true;
+            const dx = Math.abs(p2.x - p1.x);
+            const dy = Math.abs(p2.y - p1.y);
+            const dev = Math.min(dx, dy) / p;
+            return dev > YAW_RATIO_MAX;
+        }
+
+        function pushP(p) {
+            const last = pSamples.length ? pSamples[pSamples.length - 1] : 0;
+            if (last > 0 && Math.abs(p - last) / last > 0.18) pSamples = [];
+            pSamples.push(p);
+            while (pSamples.length > P_SAMPLES) pSamples.shift();
+        }
+
+        function applyDistanceFromP(p) {
+            livePixelWidth = p;
+            livePixelDisplay.textContent = p.toFixed(1);
+            if (!isCalibrated || !(calibP > 0) || !(p > 0)) {
+                resDistanceCm.textContent = '--';
+                resDistanceM.textContent = '(-- m)';
+                return;
+            }
+            const d = CALIB_DISTANCE_CM * (calibP / p);
+            resDistanceCm.textContent = d.toFixed(1);
+            resDistanceM.textContent = `(${(d / 100).toFixed(2)} m)`;
+        }
+
+        function clearTarget() {
+            lastPhoneBox = null;
+            measFresh = null;
+            resetSmoother();
+            toastText.textContent = '스마트폰이 안 보임 · 화면을 카메라에 더 크게';
+            updateCalibButton();
+        }
+
+        function boxIou(a, b) {
+            const ax2 = a.x + a.w, ay2 = a.y + a.h;
+            const bx2 = b.x + b.w, by2 = b.y + b.h;
+            const ix = Math.max(0, Math.min(ax2, bx2) - Math.max(a.x, b.x));
+            const iy = Math.max(0, Math.min(ay2, by2) - Math.max(a.y, b.y));
+            const inter = ix * iy;
+            const union = a.w * a.h + b.w * b.h - inter;
+            return union > 0 ? inter / union : 0;
+        }
+
+        function toBox(pred) {
+            const [x, y, w, h] = pred.bbox;
+            return { x, y, w, h, score: pred.score };
+        }
+
+        function isPhone(pred) {
+            const c = (pred.class || '').toLowerCase();
+            return c === 'cell phone' || c === 'phone' || c === 'mobile phone';
+        }
+
+        function boxCenter(b) {
+            return { cx: b.x + b.w / 2, cy: b.y + b.h / 2 };
+        }
+
+        function pickPhone(preds) {
+            const phones = [];
+            for (const pred of preds) {
+                if (isPhone(pred) && pred.score >= TRACK_SCORE) phones.push(toBox(pred));
+            }
+            if (!phones.length) return null;
+            phones.sort((a, b) => b.score - a.score);
+
+            if (lastPhoneBox) {
+                const lc = boxCenter(lastPhoneBox);
+                const reach = Math.max(90, lastPhoneBox.w, lastPhoneBox.h);
+                let tracked = null;
+                for (const box of phones) {
+                    const c = boxCenter(box);
+                    const d = Math.hypot(c.cx - lc.cx, c.cy - lc.cy);
+                    const iou = boxIou(lastPhoneBox, box);
+                    if (iou < 0.03 && d > reach) continue;
+                    const rank = iou * 4 + box.score - d / 800;
+                    if (!tracked || rank > tracked.rank) tracked = { box, rank };
+                }
+                if (tracked) return tracked.box;
+            }
+
+            return phones.find((box) => box.score >= MIN_SCORE) || phones[0];
+        }
+
+        function boxOverlay(x, y, w, h) {
+            const useShort = realWidthCm < 10;
+            const useWidthAxis = useShort ? (w <= h) : (w >= h);
+            const p1 = useWidthAxis
+                ? { x, y: y + h / 2 }
+                : { x: x + w / 2, y };
+            const p2 = useWidthAxis
+                ? { x: x + w, y: y + h / 2 }
+                : { x: x + w / 2, y: y + h };
+
+            const contour = [];
+            const steps = 14;
+            for (let i = 0; i < steps; i++) contour.push({ x: x + (w * i) / steps, y });
+            for (let i = 0; i < steps; i++) contour.push({ x: x + w, y: y + (h * i) / steps });
+            for (let i = 0; i < steps; i++) contour.push({ x: x + w - (w * i) / steps, y: y + h });
+            for (let i = 0; i < steps; i++) contour.push({ x: x, y: y + h - (h * i) / steps });
+
+            const dots = [];
+            const cols = 6;
+            const rows = 4;
+            for (let r = 0; r <= rows; r++) {
+                for (let c = 0; c <= cols; c++) {
+                    dots.push({
+                        x: x + (w * c) / cols,
+                        y: y + (h * r) / rows
+                    });
+                }
+            }
+            return { p1, p2, contour, dots };
+        }
+
+        function acceptPhone(hit) {
+            const p = dist(hit.p1, hit.p2);
+            if (p < 6) {
+                clearTarget();
+                return false;
+            }
+            applyDistanceFromP(p);
+            if (!clientTilted(hit.p1, hit.p2)) pushP(p);
+            updateCalibButton();
+
+            if (!isCalibrated) {
+                toastText.textContent = pointsStable()
+                    ? '스마트폰 인식 · 약 30cm면 [보정]'
+                    : '스마트폰 점선 추적 중';
+            } else {
+                toastText.textContent = `지금 p=${p.toFixed(0)} / 보정 ${calibP.toFixed(0)} → ${resDistanceCm.textContent}cm`;
+            }
+            return true;
+        }
+
+        async function detectPhone() {
+            if (!cocoModel || detecting || webcam.readyState < 2) return;
+            if (canvas.width < 2 || canvas.height < 2) return;
+            detecting = true;
+            try {
+                const vw = canvas.width;
+                const vh = canvas.height;
+                const close = lastPhoneBox && Math.min(lastPhoneBox.w, lastPhoneBox.h) >= FAR_SIDE;
+                const scale = close ? Math.min(1, INFER_MAX / Math.max(vw, vh)) : 1;
+                const iw = Math.max(16, Math.round(vw * scale));
+                const ih = Math.max(16, Math.round(vh * scale));
+                if (inferCanvas.width !== iw || inferCanvas.height !== ih) {
+                    inferCanvas.width = iw;
+                    inferCanvas.height = ih;
+                }
+                inferCtx.drawImage(canvas, 0, 0, iw, ih);
+                const preds = await cocoModel.detect(inferCanvas, MAX_BOXES, TRACK_SCORE);
+                const inv = scale > 0 ? 1 / scale : 1;
+                const scaled = [];
+                for (const pred of preds) {
+                    const [x, y, w, h] = pred.bbox;
+                    scaled.push({
+                        class: pred.class,
+                        score: pred.score,
+                        bbox: [x * inv, y * inv, w * inv, h * inv]
+                    });
+                }
+                const best = pickPhone(scaled);
+                if (best) {
+                    lastPhoneBox = { x: best.x, y: best.y, w: best.w, h: best.h };
+                    measFresh = lastPhoneBox;
+                    lastHitAt = performance.now();
+                    acceptPhone(boxOverlay(best.x, best.y, best.w, best.h));
+                    const axis = realWidthCm < 10 ? '짧은 변' : '긴 변';
+                    const pose = best.h > best.w ? '세움' : '눕힘';
+                    setStatus(focusLocked
+                        ? `폰 ${(best.score * 100).toFixed(0)}% · ${pose} · p=${axis} · 초점 고정`
+                        : `폰 ${(best.score * 100).toFixed(0)}% · ${pose} · p=${axis}`, 'green');
+                } else if (performance.now() - lastHitAt > HOLD_MS) {
+                    clearTarget();
+                }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                detecting = false;
+            }
+        }
+
+        function tick() {
+            if (!webcam.srcObject) return;
+            const size = drawVideoToCanvas();
+            if (size) {
+                detectPhone();
+                const meas = measFresh;
+                measFresh = null;
+                const box = stepSmoother(meas, performance.now());
+                drawOverlayBox(box);
+            }
+            rafId = requestAnimationFrame(tick);
+        }
+
+        async function loadCoco() {
+            setStatus('COCO-SSD 모델 로딩 중...', 'amber');
+            if (window.tf && tf.ready) await tf.ready();
+            cocoModel = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+            setStatus('COCO-SSD 준비됨 · cell phone', 'green');
+        }
+
+        async function startCamera() {
+            cameraError.classList.add('hidden');
+            stopCameraTracks();
+            try {
+                const stream = await openStream();
+                webcam.srcObject = stream;
+                webcam.setAttribute('playsinline', 'true');
+                webcam.setAttribute('webkit-playsinline', 'true');
+                webcam.muted = true;
+                await webcam.play();
+                videoTrack = stream.getVideoTracks()[0];
+                if (videoTrack) await tryLockFocus(videoTrack);
+                if (cocoModel) setStatus('COCO-SSD 추적 중', 'green');
+                rafId = requestAnimationFrame(tick);
+            } catch (err) {
+                console.error(err);
+                cameraError.classList.remove('hidden');
+                setStatus('카메라 실패', 'red');
+            }
+        }
+
+        realWidthSlider.addEventListener('input', (e) => {
+            realWidthCm = parseFloat(e.target.value);
+            realWidthVal.textContent = `${realWidthCm.toFixed(1)} cm`;
+            if (livePixelWidth > 0) applyDistanceFromP(livePixelWidth);
+            saveCalib();
+        });
+
+        btnCalibrate30cm.addEventListener('click', () => {
+            if (!pointsStable()) {
+                toastText.textContent = '점선이 폰에 붙고 잠깐 가만히 둔 뒤 다시 누르세요';
+                return;
+            }
+            const p = trimmedMean(pSamples);
+            if (p <= 5) return;
+            calibP = p;
+            focalLengthPx = (p * CALIB_DISTANCE_CM) / realWidthCm;
+            isCalibrated = true;
+            lastFrameSize = { w: canvas.width, h: canvas.height };
+            applyCalibToUi();
+            applyDistanceFromP(p);
+            saveCalib();
+            toastText.textContent = `보정됨 기준 p=${Math.round(calibP)}px = 30cm · 가까워지면 오른쪽 위 px가 커지고 cm은 작아집니다`;
+        });
+
+        document.getElementById('btn-toggle-info').addEventListener('click', () => infoModal.classList.remove('hidden'));
+        document.getElementById('btn-close-info').addEventListener('click', () => infoModal.classList.add('hidden'));
+        document.getElementById('btn-modal-ok').addEventListener('click', () => infoModal.classList.add('hidden'));
+        document.getElementById('btn-restart-cam').addEventListener('click', startCamera);
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            loadCalib();
+            applyCalibToUi();
+            updateCalibButton();
+            try {
+                await loadCoco();
+            } catch (err) {
+                console.error(err);
+                setStatus('COCO-SSD 로드 실패', 'red');
+                toastText.textContent = '모델 로드 실패 · 새로고침 해 보세요';
+            }
+            await startCamera();
+        });
+    </script>
+</body>
+</html>
