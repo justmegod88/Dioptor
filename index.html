@@ -1,0 +1,1475 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0f18">
+<title>Lens Meter</title>
+<style>
+  :root{
+    --bg:#f4f8fd; --bg2:#eef5fb; --panel:#ffffff; --panel2:#f4f9ff;
+    --line:rgba(0,94,184,.10); --line-strong:rgba(0,94,184,.18);
+    --ink:#12304d; --muted:#6b86a4; --accent:#005eb8; --accent2:#25aee4;
+    --mint:#00b7c8; --amber:#f2a84a; --red:#de5c7a; --r:20px;
+    --shadow:0 10px 30px rgba(9,75,140,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:linear-gradient(180deg,var(--bg) 0%, var(--bg2) 100%);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;
+    line-height:1.45;-webkit-font-smoothing:antialiased}
+  button,input,select{font:inherit}
+  button{-webkit-tap-highlight-color:transparent}
+  .wrap{width:min(560px,100%);margin:0 auto;
+    padding:max(10px,env(safe-area-inset-top)) 12px max(18px,env(safe-area-inset-bottom))}
+
+  header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;
+    padding:4px 2px 2px}
+  header h1{margin:0;font-size:1.08rem;letter-spacing:-.03em;font-weight:800}
+  header p{margin:2px 0 0;color:var(--muted);font-size:.73rem}
+  .ibtn{width:38px;height:38px;flex:0 0 auto;display:grid;place-items:center;
+    border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.88);
+    box-shadow:var(--shadow); color:var(--accent);cursor:pointer;font-size:1rem}
+  header>div:first-child{min-width:0;flex:1}
+  header h1{white-space:nowrap}
+  header p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .head-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+  .share-mini{display:inline-flex;align-items:center;justify-content:center;gap:4px;
+    height:34px;white-space:nowrap;padding:0 9px;border:1px solid rgba(0,94,184,.17);
+    border-radius:11px;background:rgba(255,255,255,.94);color:var(--accent);
+    box-shadow:0 3px 10px rgba(9,75,140,.055);font-size:.69rem;font-weight:780;
+    letter-spacing:-.018em;cursor:pointer}
+  .share-mini svg{height:13px;width:13px;flex-shrink:0}
+  @media(max-width:350px){
+    .share-mini{padding:0 7px;font-size:.66rem}
+    header p{font-size:.68rem}
+    header h1{font-size:1.02rem}
+  }
+
+  .card{border:1px solid var(--line);border-radius:var(--r);background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(247,251,255,.98));
+    box-shadow:var(--shadow); padding:10px;margin-bottom:9px}
+
+  /* eye selector */
+  .eye-sel{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;
+    border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.88);margin-bottom:8px;box-shadow:var(--shadow)}
+  .eye-btn{min-height:44px;border:0;border-radius:12px;background:transparent;
+    color:var(--muted);cursor:pointer;font-weight:800;display:grid;place-items:center;line-height:1.18}
+  .eye-btn small{display:block;font-size:.66rem;font-weight:600;opacity:.78}
+  .eye-btn.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.28)}
+  .eye-btn .done{color:#0ca6b7;font-size:.68rem;font-weight:700}
+
+  /* stage */
+  .stage{position:relative;aspect-ratio:4/5;overflow:hidden;border-radius:16px;
+    background:#06101b;border:1px solid var(--line-strong);box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)}
+  .stage video,.stage canvas.view{position:absolute;inset:0;width:100%;height:100%;
+    object-fit:cover;background:#05090f}
+  .hidden{display:none!important}
+  .empty{position:absolute;inset:0;display:grid;place-items:center;padding:18px;
+    text-align:center;color:#bdd2ea;font-size:.82rem}
+  .empty b{display:block;color:#fff;margin-bottom:5px;font-size:.95rem}
+
+  /* frame guide overlay */
+  .guide{position:absolute;inset:0;pointer-events:none}
+  .guide svg{width:100%;height:100%}
+
+  .banner{position:absolute;left:8px;right:8px;bottom:8px;padding:7px 10px;
+    border-radius:12px;background:rgba(255,255,255,.92);border:1px solid rgba(255,255,255,.65);
+    color:var(--accent);font-size:.76rem;font-weight:800;text-align:center;backdrop-filter:blur(10px);box-shadow:0 6px 16px rgba(6,43,93,.16)}
+  .banner.warn{color:#c9842b;border-color:rgba(242,168,74,.35)}
+  .banner.bad{color:#cf5a76;border-color:rgba(222,92,122,.28)}
+  .banner.ok{color:#008ea0;border-color:rgba(0,183,200,.28)}
+
+  /* no-glasses optical reference */
+  .refbox{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;
+    margin-top:8px;padding:8px 10px;border:1px solid rgba(0,94,184,.14);
+    border-radius:14px;background:linear-gradient(135deg,rgba(0,94,184,.05),rgba(37,174,228,.03))}
+  .refbox.ready{border-color:rgba(0,183,200,.22);background:linear-gradient(135deg,rgba(0,183,200,.08),rgba(37,174,228,.03))}
+  .refbox b{display:block;font-size:.8rem;color:var(--accent);margin-bottom:2px}
+  .refbox.ready b{color:#008ea0}
+  .refbox span{display:block;color:var(--muted);font-size:.7rem}
+  .refbox .btn{width:auto;min-height:40px;padding:8px 12px;white-space:nowrap}
+
+  /* live readout */
+  .live{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+  .cell{padding:7px 6px;border:1px solid var(--line);border-radius:14px;
+    background:linear-gradient(180deg,#ffffff,#f5faff);text-align:center;box-shadow:0 6px 16px rgba(9,75,140,.05)}
+  .cell span{display:block;color:var(--muted);font-size:.66rem;margin-bottom:2px;font-weight:700;letter-spacing:.02em}
+  .cell strong{display:block;font-size:1.22rem;font-weight:850;letter-spacing:-.03em;
+    color:var(--accent); font-variant-numeric:tabular-nums}
+  .cell.axis strong{color:#008fb4}
+
+  .meterbar{height:6px;border-radius:99px;background:rgba(0,94,184,.10);
+    overflow:hidden;margin-top:8px}
+  .meterbar i{display:block;height:100%;width:0;border-radius:inherit;
+    background:linear-gradient(90deg,var(--accent2),var(--accent),var(--mint));transition:width .3s}
+  .meterrow{display:flex;justify-content:space-between;gap:8px;margin-top:5px;
+    color:var(--muted);font-size:.7rem}
+
+  .btn{min-height:46px;width:100%;display:inline-flex;align-items:center;justify-content:center;
+    gap:7px;padding:10px 14px;border:1px solid var(--line);border-radius:14px;
+    color:var(--accent);background:linear-gradient(180deg,#fff,#f2f8ff);cursor:pointer;font-weight:800;box-shadow:0 8px 18px rgba(9,75,140,.06)}
+  .btn.pri{border-color:rgba(0,94,184,.22);background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+  .btn.go{border-color:rgba(0,183,200,.18);background:linear-gradient(135deg,#00c2d1,#00a5c8);color:#fff}
+  .btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .row.one{grid-template-columns:1fr}
+
+  /* distance */
+  .fieldrow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+    margin-bottom:8px}
+  .fieldrow label{color:var(--muted);font-size:.82rem}
+  .fieldrow input[type=number]{width:96px;padding:9px 10px;border:1px solid var(--line);
+    border-radius:10px;background:var(--panel2);color:var(--ink);text-align:right;
+    font-variant-numeric:tabular-nums}
+  .hint{color:var(--muted);font-size:.74rem;margin:6px 0 0}
+  .eqn{color:#7d90a8;font-size:.7rem;text-align:center;margin:8px 0 0;
+    font-variant-numeric:tabular-nums}
+
+  /* results */
+  .rxtable{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  .rxtable th,.rxtable td{padding:9px 6px;text-align:center;border-bottom:1px solid var(--line)}
+  .rxtable th{color:var(--muted);font-size:.7rem;font-weight:700}
+  .rxtable td{font-size:1.02rem;font-weight:800;color:var(--accent)}
+  .rxtable td.eye{color:var(--muted);font-size:.8rem;font-weight:700}
+  .rxtable tr:last-child td{border-bottom:0}
+  .pending{color:var(--muted);font-weight:500}
+
+  .disc{display:flex;gap:9px;padding:10px 12px;border-radius:14px;
+    border:1px solid rgba(0,94,184,.12);background:linear-gradient(135deg,rgba(0,94,184,.05),rgba(37,174,228,.035));
+    color:#51718f;font-size:.75rem;margin-top:8px}
+
+  /* target */
+  .tgt{position:fixed;inset:0;z-index:60;background:#fff;display:grid}
+  .tgt canvas{width:100%;height:100%;display:block}
+  .tgtbar{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);
+    display:flex;gap:8px;padding:8px;border-radius:14px;background:rgba(10,16,26,.9)}
+  .tgtbar button{min-height:42px;padding:0 14px;border:0;border-radius:10px;
+    background:#233145;color:#fff;font-weight:750;cursor:pointer}
+
+  /* modal */
+  .ov{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:16px;
+    background:rgba(4,8,14,.72);backdrop-filter:blur(5px)}
+  .modal{width:min(520px,100%);max-height:84vh;overflow-y:auto;border-radius:var(--r);
+    border:1px solid var(--line);background:#fff;box-shadow:0 16px 40px rgba(8,49,97,.18)}
+  .modal .mh{position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;
+    padding:14px 16px;border-bottom:1px solid var(--line);background:#fff}
+  .modal .mh h2{margin:0;font-size:1rem;color:var(--accent)}
+  .modal .mb{padding:16px}
+  .modal .mb h3{margin:16px 0 8px;font-size:.86rem;color:var(--accent)}
+  .modal .mb h3:first-child{margin-top:0}
+  .modal .mb p,.modal .mb li{color:#476480;font-size:.84rem}
+  .modal .mb ol,.modal .mb ul{margin:0;padding-left:18px}
+  .modal .mb li{margin-bottom:6px}
+
+  .toast{position:fixed;left:50%;bottom:22px;z-index:90;transform:translate(-50%,14px);
+    max-width:calc(100% - 30px);padding:10px 14px;border-radius:14px;
+    background:rgba(18,48,77,.96);border:1px solid rgba(255,255,255,.1);color:#fff;
+    font-size:.82rem;opacity:0;pointer-events:none;transition:.2s;text-align:center;box-shadow:0 10px 22px rgba(8,49,97,.22)}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>ACUVUE Lens Meter</h1>
+      <p>도수 변형을 빠르게 확인하는 모바일 측정 화면</p>
+    </div>
+    <div class="head-actions">
+      <button id="tgtBtn" class="share-mini" type="button" aria-label="ACUVUE 타겟 전송">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3m0 0L7.5 7.5M12 3l4.5 4.5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
+        타겟 전송
+      </button>
+      <button id="helpBtn" class="ibtn" type="button" aria-label="사용법">?</button>
+    </div>
+  </header>
+
+  <!-- 2. 좌우 선택 -->
+  <div class="eye-sel">
+    <button id="eyeR" class="eye-btn on" type="button" data-eye="R">
+      우안 (OD)<small>Right</small><span class="done" id="doneR"></span>
+    </button>
+    <button id="eyeL" class="eye-btn" type="button" data-eye="L">
+      좌안 (OS)<small>Left</small><span class="done" id="doneL"></span>
+    </button>
+  </div>
+
+  <!-- 3. 촬영 -->
+  <div class="card">
+    <div class="stage" id="stage">
+      <video id="vid" playsinline muted class="hidden"></video>
+      <div class="guide" id="guide" aria-hidden="true">
+        <svg viewBox="0 0 300 400" preserveAspectRatio="none">
+          <circle id="gCircle" cx="150" cy="185" r="96" fill="none"
+                  stroke="#25aee4" stroke-width="1.8" stroke-dasharray="6 7" opacity=".65"/>
+          <rect x="18" y="52" width="264" height="266" fill="none"
+                stroke="#25aee4" stroke-width="1" opacity=".22"/>
+          <!-- 수평 기준선: AXIS는 이 선을 0°로 잡는다. 안경테를 여기에 맞춘다.
+               렌즈가 가려지지 않도록 중앙은 비우고 양끝만 표시. -->
+          <line x1="6" y1="185" x2="52" y2="185"
+                stroke="#00c2d1" stroke-width="1.2" opacity=".75"/>
+          <line x1="248" y1="185" x2="294" y2="185"
+                stroke="#00c2d1" stroke-width="1.2" opacity=".75"/>
+          <line x1="146" y1="185" x2="154" y2="185" stroke="#00c2d1" stroke-width="1" opacity=".45"/>
+          <line x1="150" y1="181" x2="150" y2="189" stroke="#00c2d1" stroke-width="1" opacity=".45"/>
+          <text x="6" y="179" fill="#00c2d1" font-size="8" font-weight="600"
+                font-family="-apple-system,sans-serif" opacity=".6">0°</text>
+        </svg>
+      </div>
+      <div class="empty" id="empty">
+        <div><b>작은 글자가 많은 책을 화면 가득 비추세요</b>
+        책을 평평하게 놓고, 점선 원 안에 렌즈 중앙이 오도록 합니다.</div>
+      </div>
+      <div class="banner" id="banner">대기 중</div>
+    </div>
+
+    <div class="refbox" id="refBox">
+      <div>
+        <b id="refTitle">무안경 기준이 필요합니다</b>
+        <span id="refState">카메라를 켠 뒤 안경 없이 기준을 잡아 주세요.</span>
+      </div>
+      <button id="refBtn" class="btn" type="button" disabled>기준 잡기</button>
+    </div>
+
+    <div class="live">
+      <div class="cell"><span>SPH</span><strong id="lSph">—</strong></div>
+      <div class="cell"><span>CYL</span><strong id="lCyl">—</strong></div>
+      <div class="cell axis"><span>AXIS</span><strong id="lAxis">—</strong></div>
+    </div>
+    <div class="meterbar"><i id="mFill"></i></div>
+    <div class="meterrow"><span id="mLeft">유효 스캔 0</span><span id="mRight">—</span></div>
+
+    <div class="row">
+      <button id="resetBtn" class="btn" type="button">스캔 초기화</button>
+      <button id="saveBtn" class="btn go" type="button" disabled>이 눈 저장 (수동)</button>
+    </div>
+  </div>
+
+  <!-- 4. 결과 -->
+  <div class="card">
+    <table class="rxtable">
+      <thead><tr><th></th><th>SPH</th><th>CYL</th><th>AXIS</th><th>SE</th></tr></thead>
+      <tbody>
+        <tr><td class="eye">우 OD</td>
+          <td id="rR_s" class="pending">—</td><td id="rR_c" class="pending">—</td>
+          <td id="rR_a" class="pending">—</td><td id="rR_e" class="pending">—</td></tr>
+        <tr><td class="eye">좌 OS</td>
+          <td id="rL_s" class="pending">—</td><td id="rL_c" class="pending">—</td>
+          <td id="rL_a" class="pending">—</td><td id="rL_e" class="pending">—</td></tr>
+      </tbody>
+    </table>
+    <div class="disc"><span>⚠</span><span>대략적 추정값입니다. 렌즈미터·검안을 대신할 수 없고 처방·판매에 사용할 수 없습니다.</span></div>
+  </div>
+</div>
+
+<!-- 타깃 -->
+<div id="tgtView" class="tgt hidden">
+  <canvas id="tgtCv"></canvas>
+  <div class="tgtbar">
+    <button id="tgtFs" type="button">전체화면</button>
+    <button id="tgtClose" type="button">닫기</button>
+  </div>
+</div>
+
+<!-- 도움말 -->
+<div id="help" class="ov hidden">
+  <div class="modal">
+    <div class="mh"><h2>사용법</h2><button id="helpClose" class="ibtn" type="button">✕</button></div>
+    <div class="mb">
+      <h3>준비</h3>
+      <ol>
+        <li>작은 글자가 많은 책·신문·무광 인쇄물을 <b>평평하게</b> 놓고 화면 전체에 글자가 보이게 합니다.</li>
+        <li>휴대폰 카메라와 책 표면을 <b>200mm</b> 간격으로 고정합니다.</li>
+        <li>카메라가 자동으로 켜지면 <b>안경을 두지 않은 상태</b>로 ‘기준 잡기’를 누릅니다.</li>
+        <li>기준이 완료되면 휴대폰과 책을 움직이지 말고, 안경을 정확히 중간인 <b>카메라에서 100mm</b> 위치에 수평으로 둡니다.</li>
+      </ol>
+      <h3>측정</h3>
+      <ol>
+        <li>우안/좌안을 선택합니다.</li>
+        <li>점선 원 안에 렌즈 중앙이 오도록 맞춥니다.</li>
+        <li>초록 안내가 뜨도록 그대로 유지하면 안정된 측정 5회 후 <b>자동 저장</b>됩니다.</li>
+        <li>반대쪽 눈으로 반복합니다.</li>
+      </ol>
+      <h3>정확도를 올리려면</h3>
+      <ul>
+        <li><b>거리를 정확히</b> — 가장 큰 오차원입니다. 기본 측정 거리는 200mm이며
+            고정 높이 거치대로 ±5mm 안에 맞추는 것을 권장합니다.</li>
+        <li><b>안경테를 초록 수평선에 맞추세요</b> — AXIS는 이 선을 0°로 잡습니다. 테가 기울면 그만큼 축이 틀립니다.</li>
+        <li>휴대폰을 책 표면과 <b>평행</b>하게. 많이 기울면 프레임을 자동으로 버립니다.</li>
+        <li>렌즈 반사광을 피하고, 파란 원의 안쪽과 바깥쪽 모두에 작은 글자가 보여야 합니다.</li>
+        <li>안경을 <b>중간(50%)</b>에 두면 거리 오차의 영향이 최소가 됩니다.</li>
+      </ul>
+      <h3>원리</h3>
+      <p>무안경 기준 사진의 글자·모서리를 현재 영상에서 다시 찾아 <b>렌즈 밖의 카메라 움직임</b>과
+      <b>렌즈 안의 방향별 변형</b>을 각각 계산합니다. 바깥쪽 변형을 제거한 배율 행렬 A의
+      고유값에서 두 주경선 배율 m₁·m₂를 분리하고,
+      <b>F = (1 − 1/m)/e</b>, <b>e = ab/(a+b)</b> 로 각 경선의 도수를 계산합니다.
+      책의 비주기적인 글자·문단 배열을 사용하므로 규칙적인 격자의 주기 오인식이 없습니다.</p>
+      <p>여러 프레임을 모아 <b>중앙값 + MAD 이상치 제거</b>로 합칩니다. 흔들린 프레임 몇 장은 결과를 오염시키지 않습니다.</p>
+      <h3>한계</h3>
+      <p>박막 렌즈 근사를 씁니다. 렌즈 두께·굴절률(1.50~1.74)·비구면 설계에 따라 계통 오차가 남고,
+      누진·프리즘 렌즈는 측정할 수 없습니다. 실제 검증 연구에서도 굴절률별로 식을 따로 맞춰야 했고,
+      자동렌즈미터 대비 구면 약 0.25D, 원주 약 0.3D 수준의 차이가 보고되었습니다.
+      이 앱은 그 수준에 못 미칠 가능성이 큽니다. 무안경 상태와 구분하기 어려운 약 0.25D 이하의 매우 약한 렌즈는
+      ‘렌즈 미감지’로 표시될 수 있습니다.</p>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<canvas id="work" class="hidden"></canvas>
+
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id);};
+
+/* ---------- 상태 ---------- */
+var S={
+  stream:null, timer:null, eye:"R",
+  samples:[],            // {M,J0,J45,score}
+  results:{R:null,L:null},
+  reference:null,        // 무안경 랜덤 점 기준 영상과 추적점
+  motion:null,           // 직전 프레임의 짐벌 보정 affine
+  focusTrack:null,
+  focusModes:[],
+  focusBusy:false,
+  lastFocusRetry:0,
+  refSamples:[],
+  refMode:false,
+  autoSamples:[],
+  autoSaveTimer:null,
+  autoSavePending:false,
+  autoSaveCooldownUntil:0
+};
+var MIN_LENS_POWER=.30;  // 이보다 작은 변화는 무안경/촬영 잡음으로 취급
+var REF_SAMPLE_TARGET=5; // 빠른 기준 보정에 필요한 최소 표본
+var AUTO_SAVE_SAMPLES=5; // 기울기와 측정값이 연속으로 안정되어야 하는 횟수
+var AUTO_SAVE_MAX_SKEW=.35;
+var AUTO_SAVE_MAX_SPREAD=.45;
+var AUTO_SAVE_MAX_STEP=.45;
+var AUTO_SAVE_SWITCH_DELAY=3000; // 반대쪽 렌즈로 옮길 시간
+
+function toast(m){var t=$("toast");t.textContent=m;t.classList.add("on");
+  clearTimeout(toast.t);toast.t=setTimeout(function(){t.classList.remove("on");},2200);}
+
+function cancelAutoSave(){
+  if(S.autoSaveTimer){clearTimeout(S.autoSaveTimer);S.autoSaveTimer=null;}
+  S.autoSavePending=false;
+}
+
+function resetAutoSequence(){
+  cancelAutoSave();
+  S.autoSamples=[];
+}
+
+function vecStep(a,b){
+  return Math.abs(a.M-b.M)+Math.abs(a.J0-b.J0)+Math.abs(a.J45-b.J45);
+}
+
+/* 최근 표본부터 거꾸로 확인해 기울기와 값이 연속으로 안정된 횟수를 센다. */
+function autoSaveState(){
+  var count=S.autoSamples.length;
+  var recent=count>=AUTO_SAVE_SAMPLES?S.autoSamples.slice(-AUTO_SAVE_SAMPLES):[];
+  var agg=recent.length?robustVec(recent):null;
+  return {count:count,agg:agg,
+    ready:count>=AUTO_SAVE_SAMPLES&&agg&&agg.spread<AUTO_SAVE_MAX_SPREAD&&
+      recent.every(function(v){return isFinite(v._skew)&&v._skew<=AUTO_SAVE_MAX_SKEW;})};
+}
+
+function addAutoSample(vec,skew){
+  if(!isFinite(skew)||skew>AUTO_SAVE_MAX_SKEW){resetAutoSequence();return;}
+  var prev=S.autoSamples.length?S.autoSamples[S.autoSamples.length-1]:null;
+  if(prev&&vecStep(prev,vec)>AUTO_SAVE_MAX_STEP) S.autoSamples=[];
+  vec._skew=skew;
+  S.autoSamples.push(vec);
+  if(S.autoSamples.length>AUTO_SAVE_SAMPLES) S.autoSamples.shift();
+}
+
+/* ---------- 광학 ---------- */
+/* 자동 거리 보정값: 기준 촬영 당시의 실제 카메라↔타깃 거리(mm) */
+var CAL=(function(){
+  try{ var v=JSON.parse(localStorage.getItem("lmDotCalV2")||"null");
+       return (v&&v.D)?v:{D:null}; }catch(e){ return {D:null}; }
+})();
+var AUTO=false;
+var lastD=200;
+var TARGET_ONLY=new URLSearchParams(location.search).get("target")==="1";
+
+function totalDistance(){
+  return 200;
+}
+function geom(){
+  return {a:100,b:100,e:50,eM:.05};
+}
+function syncGeom(){}
+
+function normAxis(d){var v=d%180; if(v<0)v+=180; return v;}
+function rxToVec(s,c,ax){var a=ax*Math.PI/180;
+  return {M:s+c/2, J0:(-c/2)*Math.cos(2*a), J45:(-c/2)*Math.sin(2*a)};}
+function vecToRx(v){
+  var mag=Math.hypot(v.J0,v.J45), c=-2*mag;
+  var ax=normAxis(.5*Math.atan2(v.J45,v.J0)*180/Math.PI);
+  return {sph:v.M-c/2, cyl:c, axis:ax};
+}
+function q25(x){return Math.round(x*4)/4;}
+function fmtP(x){if(!isFinite(x))return "—";var v=Math.abs(x)<.005?0:x;
+  return (v>=0?"+":"")+v.toFixed(2);}
+
+/* ---------- FFT ---------- */
+function fft(re,im,inv){
+  var n=re.length,i,j=0,k,m;
+  for(i=1;i<n;i++){
+    var bit=n>>1;
+    for(;j&bit;bit>>=1) j^=bit;
+    j^=bit;
+    if(i<j){var tr=re[i];re[i]=re[j];re[j]=tr;var ti=im[i];im[i]=im[j];im[j]=ti;}
+  }
+  for(m=2;m<=n;m<<=1){
+    var ang=(inv?2:-2)*Math.PI/m;
+    var wr=Math.cos(ang), wi=Math.sin(ang);
+    for(i=0;i<n;i+=m){
+      var cr=1,ci=0;
+      for(k=0;k<m/2;k++){
+        var ur=re[i+k], ui=im[i+k];
+        var vr=re[i+k+m/2]*cr-im[i+k+m/2]*ci;
+        var vi=re[i+k+m/2]*ci+im[i+k+m/2]*cr;
+        re[i+k]=ur+vr; im[i+k]=ui+vi;
+        re[i+k+m/2]=ur-vr; im[i+k+m/2]=ui-vi;
+        var ncr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=ncr;
+      }
+    }
+  }
+}
+/* 2D 파워 스펙트럼 (N x N, N은 2의 거듭제곱) */
+function powerSpectrum(g,N){
+  var re=new Float64Array(N*N), im=new Float64Array(N*N);
+  var i,x,y;
+  for(i=0;i<N*N;i++) re[i]=g[i];
+  var rr=new Float64Array(N), ri=new Float64Array(N);
+  for(y=0;y<N;y++){
+    for(x=0;x<N;x++){rr[x]=re[y*N+x];ri[x]=im[y*N+x];}
+    fft(rr,ri,false);
+    for(x=0;x<N;x++){re[y*N+x]=rr[x];im[y*N+x]=ri[x];}
+  }
+  for(x=0;x<N;x++){
+    for(y=0;y<N;y++){rr[y]=re[y*N+x];ri[y]=im[y*N+x];}
+    fft(rr,ri,false);
+    for(y=0;y<N;y++){re[y*N+x]=rr[y];im[y*N+x]=ri[y];}
+  }
+  var p=new Float64Array(N*N);
+  for(i=0;i<N*N;i++) p[i]=re[i]*re[i]+im[i]*im[i];
+  return p;
+}
+
+/* ---------- 패치 추출 ---------- */
+/* src 캔버스에서 (cx,cy) 중심, side 픽셀 정사각형을 N x N 그레이로 리샘플 + Hann 창 + DC 제거 */
+function grabPatch(imgData,W,H,cx,cy,side,N){
+  var g=new Float64Array(N*N);
+  var half=side/2, i,x,y, sum=0, cnt=0;
+  for(y=0;y<N;y++){
+    var sy=cy-half+(y+.5)*side/N;
+    var iy=Math.round(sy);
+    if(iy<0||iy>=H) return null;
+    for(x=0;x<N;x++){
+      var sx=cx-half+(x+.5)*side/N;
+      var ix=Math.round(sx);
+      if(ix<0||ix>=W) return null;
+      var o=(iy*W+ix)*4;
+      var lum=(imgData[o]*.299+imgData[o+1]*.587+imgData[o+2]*.114);
+      g[y*N+x]=lum; sum+=lum; cnt++;
+    }
+  }
+  var mean=sum/cnt, varsum=0;
+  for(i=0;i<N*N;i++){var d=g[i]-mean; varsum+=d*d;}
+  var sd=Math.sqrt(varsum/(N*N));
+  if(sd<6) return null;                       /* 대비 없음 = 격자 없음 */
+  /* Hann 2D 창 + 정규화 */
+  for(y=0;y<N;y++){
+    var wy=.5-.5*Math.cos(2*Math.PI*y/(N-1));
+    for(x=0;x<N;x++){
+      var wx=.5-.5*Math.cos(2*Math.PI*x/(N-1));
+      g[y*N+x]=(g[y*N+x]-mean)/sd*wx*wy;
+    }
+  }
+  return g;
+}
+
+/* ---------- 역격자 벡터 2개 찾기 ---------- */
+function reciprocalBasis(power,N,side){
+  var half=N/2, best=[], x,y;
+  var minR=2.5, maxR=half-2;          /* DC 근처·나이퀴스트 근처 제외 */
+  for(y=0;y<N;y++){
+    var fy=(y<=half)?y:y-N;
+    for(x=0;x<N;x++){
+      var fx=(x<=half)?x:x-N;
+      if(fy<0) continue;                       /* 반평면만 (±쌍 중복 제거) */
+      if(fy===0&&fx<=0) continue;
+      var r=Math.hypot(fx,fy);
+      if(r<minR||r>maxR) continue;
+      best.push({fx:fx,fy:fy,p:power[y*N+x]});
+    }
+  }
+  if(best.length<8) return null;
+  best.sort(function(a,b){return b.p-a.p;});
+  var mid=best[Math.floor(best.length*.5)].p||1e-9;
+
+  /* 잡음 기각: 진짜 격자는 중앙값 대비 수천 배, 랜덤 잡음은 ~10배 */
+  if(best[0].p < mid*30) return null;
+
+  function powAt(fx,fy){
+    var ix=((Math.round(fx)%N)+N)%N, iy=((Math.round(fy)%N)+N)%N;
+    return power[iy*N+ix];
+  }
+  /* 고조파 방어: 절반 주파수가 '현재 피크에 필적할 만큼' 강할 때만 환원한다.
+     문턱을 느슨하게 두면 저주파 잡음으로 내려가 배율이 절반으로 잘못 잡힌다. */
+  function primitive(g){
+    var cur=g;
+    for(var s=0;s<2;s++){
+      var hx=cur.fx/2, hy=cur.fy/2;
+      if(Math.hypot(hx,hy)<minR) break;
+      var ph=powAt(hx,hy);
+      if(ph < cur.p*.35) break;
+      cur={fx:hx,fy:hy,p:ph};
+    }
+    return cur;
+  }
+
+  var g1=primitive(best[0]);
+  var a1=Math.atan2(g1.fy,g1.fx), g2=null;
+  for(var i=1;i<best.length;i++){
+    var c=best[i];
+    if(c.p<mid*15) break;
+    var a2=Math.atan2(c.fy,c.fx);
+    var d=Math.abs(a1-a2)%Math.PI; d=Math.min(d,Math.PI-d);
+    if(d>25*Math.PI/180){g2=primitive(c);break;}
+  }
+  if(!g2) return null;
+  var strength=Math.min(g1.p,g2.p)/mid;
+
+  /* 3x3 무게중심으로 서브픽셀 보정 */
+  function refine(pk){
+    var sx=0,sy=0,sw=0;
+    for(var dy=-1;dy<=1;dy++)for(var dx=-1;dx<=1;dx++){
+      var fx=pk.fx+dx, fy=pk.fy+dy;
+      var ix=((fx%N)+N)%N, iy=((fy%N)+N)%N;
+      var w=power[iy*N+ix];
+      sx+=fx*w; sy+=fy*w; sw+=w;
+    }
+    return sw>0?{fx:sx/sw,fy:sy/sw}:{fx:pk.fx,fy:pk.fy};
+  }
+  var r1=refine(g1), r2=refine(g2);
+  /* 역격자 벡터의 ± 부호는 임의라, 안/밖 기저의 방향성(handedness)이 어긋나면
+     A에 반사(reflection)가 섞여 축이 180-θ 로 거울 반전된다.
+     항상 오른손 기저(det>0)로 맞춰 준다. */
+  if(r1.fx*r2.fy - r1.fy*r2.fx < 0){ r2={fx:-r2.fx, fy:-r2.fy}; }
+
+  /* 주: 고조파 최소제곱 격자 정밀화를 시도했으나 A/B 측정 결과
+     CYL 오차가 0.03D -> 0.36D 로 악화되어 제거했다.
+     3x3 무게중심 서브픽셀 추정이 이 조건에서 더 정확하다. */
+  /* 패치 좌표계(cycles/patch) → 원본 픽셀 좌표계(cycles/px)로 정규화.
+     이 정규화를 빼먹으면 안/밖 패치 크기 비율이 그대로 가짜 배율로 들어간다. */
+  var k=1/side;
+  return {g1:{fx:r1.fx*k,fy:r1.fy*k}, g2:{fx:r2.fx*k,fy:r2.fy*k},
+          strength:strength};
+}
+
+/* ---------- 2x2 행렬 유틸 ---------- */
+function inv2(m){var d=m[0]*m[3]-m[1]*m[2];
+  if(Math.abs(d)<1e-12) return null;
+  return [m[3]/d,-m[1]/d,-m[2]/d,m[0]/d];}
+function mul2(a,b){return [a[0]*b[0]+a[1]*b[2], a[0]*b[1]+a[1]*b[3],
+                           a[2]*b[0]+a[3]*b[2], a[2]*b[1]+a[3]*b[3]];}
+function tr2(m){return [m[0],m[2],m[1],m[3]];}
+
+/* 역격자 → 실격자 관계:  G_in = A^-T G_out  ⇒  A = (G_in G_out^-1)^-T */
+function magMatrix(Gin,Gout){
+  var gi=[Gin.g1.fx,Gin.g2.fx,Gin.g1.fy,Gin.g2.fy];
+  var go=[Gout.g1.fx,Gout.g2.fx,Gout.g1.fy,Gout.g2.fy];
+
+  /* 대응 맞추기: 각도가 가까운 것끼리 */
+  function ang(x,y){var a=Math.atan2(y,x)%Math.PI; return a<0?a+Math.PI:a;}
+  function adist(a,b){var d=Math.abs(a-b)%Math.PI; return Math.min(d,Math.PI-d);}
+  var ai1=ang(Gin.g1.fx,Gin.g1.fy), ai2=ang(Gin.g2.fx,Gin.g2.fy);
+  var ao1=ang(Gout.g1.fx,Gout.g1.fy), ao2=ang(Gout.g2.fx,Gout.g2.fy);
+  var keep=adist(ai1,ao1)+adist(ai2,ao2);
+  var swap=adist(ai1,ao2)+adist(ai2,ao1);
+  if(swap<keep){
+    /* 열을 맞바꾸면 행렬식 부호가 뒤집혀 반사가 다시 섞인다.
+       한 열의 부호를 뒤집어 오른손 기저를 유지한다. */
+    go=[Gout.g2.fx,-Gout.g1.fx,Gout.g2.fy,-Gout.g1.fy];
+  }
+
+  var goInv=inv2(go); if(!goInv) return null;
+  var T=mul2(gi,goInv);                 /* = A^-T */
+  var Ti=inv2(T); if(!Ti) return null;
+  return tr2(Ti);                       /* A */
+}
+
+/* A → 주경선 배율 + 축 */
+function principal(A){
+  var c00=A[0]*A[0]+A[2]*A[2];
+  var c01=A[0]*A[1]+A[2]*A[3];
+  var c11=A[1]*A[1]+A[3]*A[3];
+  var tr=c00+c11;
+  var disc=Math.sqrt(Math.max(0,(c00-c11)*(c00-c11)+4*c01*c01));
+  var l1=Math.max(1e-9,(tr+disc)/2), l2=Math.max(1e-9,(tr-disc)/2);
+  var ang=.5*Math.atan2(2*c01,c00-c11);
+  return {m1:Math.sqrt(l1), m2:Math.sqrt(l2), angle:ang};
+}
+
+/* 배율 행렬을 실제 도수 벡터로 변환한다.
+   무안경 기준 행렬을 제거한 뒤에만 호출해야 카메라 왜곡이 도수로 섞이지 않는다. */
+function matrixToMeasurement(A){
+  var pr=principal(A);
+  if(pr.m1<.35||pr.m1>2.6||pr.m2<.35||pr.m2>2.6)
+    return {ok:false,why:"range"};
+
+  var g=geom();
+  if(g.eM<.03) return {ok:false,why:"tooClose"};
+  var F1=(1-1/pr.m1)/g.eM;
+  var F2=(1-1/pr.m2)/g.eM;
+
+  /* AXIS 기준 = 화면(이미지)의 수평. 안경테를 초록선에 맞춘다. */
+  var axisDeg=normAxis(pr.angle*180/Math.PI);
+  var sph=Math.max(F1,F2), cyl=Math.min(F1,F2)-sph;
+  if(F1<F2) axisDeg=normAxis(axisDeg+90);
+
+  return {ok:true,vec:rxToVec(sph,cyl,axisDeg),
+          signal:Math.max(Math.abs(F1),Math.abs(F2))};
+}
+
+/* ---------- 한 프레임 분석 ---------- */
+function analyzeFrame(imgData,W,H){
+  var N=S.N;
+  var cx=W*.5, cy=H*.5*(370/400);       /* 가이드 원 중심과 맞춤 */
+  var R=Math.min(W,H)*.24;              /* 가이드 원 반경(대략) */
+
+  /* 렌즈 안 패치 */
+  var inSide=R*1.2;
+  var Pin=grabPatch(imgData,W,H,cx,cy,inSide,N);
+  if(!Pin) return {ok:false,why:"noGrid"};
+  var Gin=reciprocalBasis(powerSpectrum(Pin,N),N,inSide);
+  if(!Gin) return {ok:false,why:"noGridIn"};
+
+  /* 렌즈 밖 8방향을 확인한다. 여러 위치가 잡히면 서로 비슷한 후보를 사용하고,
+     안경테가 가린 경우에는 선명한 한 위치만으로도 측정을 이어 간다. */
+  var outSide=R*.85, off=R*1.55, s=Math.SQRT1_2;
+  var offs=[[0,-1],[0,1],[-1,0],[1,0],[-s,-s],[s,-s],[-s,s],[s,s]];
+  var cands=[];
+  for(var i=0;i<offs.length;i++){
+    var ox=cx+offs[i][0]*off, oy=cy+offs[i][1]*off;
+    var P=grabPatch(imgData,W,H,ox,oy,outSide,N);
+    if(!P) continue;
+    var G=reciprocalBasis(powerSpectrum(P,N),N,outSide);
+    if(!G) continue;
+    var L1=Math.hypot(G.g1.fx,G.g1.fy), L2=Math.hypot(G.g2.fx,G.g2.fy);
+    /* 쉬운 측정 모드: 기울기·촬영 거리 때문에 격자 비율이나 크기가 달라도
+       FFT가 두 방향의 격자를 찾았다면 후보로 사용한다. */
+    G.scale=(L1+L2)/2;
+    cands.push(G);
+  }
+  /* 균형 모드: 안경테가 여러 후보를 가려도 선명한 한 곳이 있으면 진행한다. */
+  if(cands.length<1) return {ok:false,why:"noGridOut"};
+
+  /* 서로 다른 위치의 후보들이 주기에 대해 합의해야 한다 */
+  var scales=cands.map(function(c){return c.scale;});
+  var medScale=median(scales);
+  var agree=cands.filter(function(c){
+    return Math.abs(c.scale-medScale)/medScale < .22;});
+  if(agree.length<1) return {ok:false,why:"noGridOut"};
+
+  var bestOut=agree[0];
+  for(i=1;i<agree.length;i++) if(agree[i].strength>bestOut.strength) bestOut=agree[i];
+
+  var A=magMatrix(Gin,bestOut);
+  if(!A) return {ok:false,why:"illCond"};
+
+  /* 기울기(원근) 검사: 렌즈 밖 격자가 직각이어야 함 */
+  var go=[bestOut.g1.fx,bestOut.g2.fx,bestOut.g1.fy,bestOut.g2.fy];
+  var dot=go[0]*go[1]+go[2]*go[3];
+  var n1=Math.hypot(go[0],go[2]), n2=Math.hypot(go[1],go[3]);
+  var skew=Math.abs(dot/(n1*n2));
+  if(skew>.75) return {ok:false,why:"tilt"};
+
+  /* --- 자동 거리 ---
+     밖 격자의 겉보기 주기(px)와 초점거리 f, 실제 격자 크기 P로
+     a+b = f*P/pitch_px. 배율만으로는 절대 거리가 안 나오므로 f가 필요하다. */
+  var outPitchPx=1/bestOut.scale;
+  if(AUTO && CAL.f && CAL.P){
+    var D=CAL.f*CAL.P/outPitchPx;
+    if(D>120 && D<2000) lastD=D; else return {ok:false,why:"badDist"};
+  }
+
+  /* 여기서는 원시 배율만 반환한다. 무안경 기준값은 tick()에서 제거한다. */
+  return {ok:true, A:A,
+          score:Math.min(Gin.strength,bestOut.strength), skew:skew,
+          outPitchPx:outPitchPx};
+}
+
+/* ---------- 랜덤 점 추적 ----------
+   무안경 기준의 비주기 점 무늬를 현재 프레임에서 다시 찾는다.
+   렌즈 밖 affine은 카메라 움직임 C, 렌즈 안 affine은 C×L 이므로
+   L = C^-1×(C×L) 로 렌즈만의 방향별 배율을 분리할 수 있다. */
+function rgbaToGray(src,W,H){
+  var g=new Uint8Array(W*H);
+  for(var i=0,j=0;i<g.length;i++,j+=4)
+    g[i]=(src[j]*77+src[j+1]*150+src[j+2]*29)>>8;
+  return g;
+}
+function halfGray(src,W,H){
+  var w=W>>1,h=H>>1,out=new Uint8Array(w*h);
+  for(var y=0;y<h;y++)for(var x=0;x<w;x++){
+    var i=(y*2)*W+x*2;
+    out[y*w+x]=(src[i]+src[i+1]+src[i+W]+src[i+W+1]+2)>>2;
+  }
+  return {g:out,w:w,h:h};
+}
+function cornerScore(g,W,H,x,y){
+  var xx=0,yy=0,xy=0;
+  for(var j=-4;j<=4;j+=2)for(var i=-4;i<=4;i+=2){
+    var p=(y+j)*W+x+i;
+    var gx=g[p+1]-g[p-1],gy=g[p+W]-g[p-W];
+    xx+=gx*gx; yy+=gy*gy; xy+=gx*gy;
+  }
+  var tr=xx+yy,disc=Math.sqrt(Math.max(0,(xx-yy)*(xx-yy)+4*xy*xy));
+  return (tr-disc)/2;
+}
+function edgeSharpness(g,W,H,inside){
+  var cx=W*.5,cy=H*.5*(370/400),R=Math.min(W,H)*.24,sum=0,n=0;
+  for(var y=3;y<H-3;y+=3)for(var x=3;x<W-3;x+=3){
+    var rr=Math.hypot(x-cx,y-cy)/R;
+    if(inside?rr>.82:rr<1.05)continue;
+    var p=y*W+x;
+    sum+=Math.abs(g[p+1]-g[p-1])+Math.abs(g[p+W]-g[p-W]);n++;
+  }
+  return n?sum/n:0;
+}
+function selectDotFeatures(g,W,H,inside){
+  var cx=W*.5,cy=H*.5*(370/400),R=Math.min(W,H)*.24;
+  var list=[],step=8,margin=18;
+  for(var y=margin;y<H-margin;y+=step)for(var x=margin;x<W-margin;x+=step){
+    var rr=Math.hypot(x-cx,y-cy)/R;
+    /* 책 모드: 안쪽은 렌즈 중심부, 바깥쪽은 원 밖의 화면 전체에서 찾는다.
+       책이 화면 한쪽에 치우쳐도 글자가 있는 부분을 사용할 수 있다. */
+    var allowed=inside?(rr<.78):(rr>1.08);
+    if(!allowed) continue;
+    var sc=cornerScore(g,W,H,x,y);
+    if(sc>420) list.push({x:x,y:y,score:sc});
+  }
+  list.sort(function(a,b){return b.score-a.score;});
+  var out=[],limit=inside?52:84,buckets={};
+  for(var k=0;k<list.length&&out.length<limit;k++){
+    var p=list[k],bx=Math.min(4,Math.floor(p.x/W*5)),by=Math.min(5,Math.floor(p.y/H*6));
+    var key=bx+":"+by,cap=inside?8:6;
+    if((buckets[key]||0)>=cap)continue;
+    var near=out.some(function(q){return Math.hypot(p.x-q.x,p.y-q.y)<9;});
+    if(!near){out.push(p);buckets[key]=(buckets[key]||0)+1;}
+  }
+  return out;
+}
+function zncc(a,b,W,H,ax,ay,bx,by,rad){
+  if(ax-rad<0||ay-rad<0||ax+rad>=W||ay+rad>=H||
+     bx-rad<0||by-rad<0||bx+rad>=W||by+rad>=H) return -2;
+  var sa=0,sb=0,saa=0,sbb=0,sab=0,n=0;
+  for(var j=-rad;j<=rad;j++)for(var i=-rad;i<=rad;i++){
+    var va=a[(ay+j)*W+ax+i],vb=b[(by+j)*W+bx+i];
+    sa+=va;sb+=vb;saa+=va*va;sbb+=vb*vb;sab+=va*vb;n++;
+  }
+  var vaa=saa-sa*sa/n,vbb=sbb-sb*sb/n;
+  if(vaa<80||vbb<80) return -2;
+  return (sab-sa*sb/n)/Math.sqrt(vaa*vbb);
+}
+function predictPoint(p,f){
+  return f?{x:f.A[0]*p.x+f.A[1]*p.y+f.t[0],
+            y:f.A[2]*p.x+f.A[3]*p.y+f.t[1]}:{x:p.x,y:p.y};
+}
+function matchDot(ref,cur,W,H,p,rh,ch,rq,cq,inside,pred){
+  /* 1/4 영상에서 최대 약 100px의 큰 흔들림을 먼저 찾고,
+     1/2 → 원본 순서로 정밀화한다. */
+  var pp=predictPoint(p,pred);
+  var ax=Math.round(p.x/4),ay=Math.round(p.y/4);
+  var px=Math.round(pp.x/4),py=Math.round(pp.y/4);
+  var range=pred?(inside?14:9):26,peaks=[];
+  for(var dy=-range;dy<=range;dy++)for(var dx=-range;dx<=range;dx++){
+    var s=zncc(rq.g,cq.g,rq.w,rq.h,ax,ay,px+dx,py+dy,3);
+    if(s>.16)peaks.push({s:s,x:px+dx,y:py+dy});
+  }
+  peaks.sort(function(a,b){return b.s-a.s;});
+  var coarse=[];
+  for(var z=0;z<peaks.length&&coarse.length<(inside?5:1);z++){
+    if(coarse.every(function(q){return Math.hypot(q.x-peaks[z].x,q.y-peaks[z].y)>2.2;}))
+      coarse.push(peaks[z]);
+  }
+  var answers=[],ahx=Math.round(p.x/2),ahy=Math.round(p.y/2);
+  for(z=0;z<coarse.length;z++){
+    var hx=coarse[z].x*2,hy=coarse[z].y*2,halfBest=-2,hbx=hx,hby=hy;
+    for(dy=-4;dy<=4;dy++)for(dx=-4;dx<=4;dx++){
+      var hs=zncc(rh.g,ch.g,rh.w,rh.h,ahx,ahy,hx+dx,hy+dy,4);
+      if(hs>halfBest){halfBest=hs;hbx=hx+dx;hby=hy+dy;}
+    }
+    if(halfBest<.28)continue;
+    var fx=hbx*2,fy=hby*2,fullBest=-2,rx=fx,ry=fy;
+    for(dy=-3;dy<=3;dy++)for(dx=-3;dx<=3;dx++){
+      var ss=zncc(ref,cur,W,H,p.x,p.y,fx+dx,fy+dy,6);
+      if(ss>fullBest){fullBest=ss;rx=fx+dx;ry=fy+dy;}
+    }
+    if(fullBest>.34)answers.push({x:p.x,y:p.y,u:rx,v:ry,corr:fullBest});
+    else if(inside&&halfBest>.43)answers.push({x:p.x,y:p.y,u:hbx*2,v:hby*2,
+      corr:halfBest*.86,coarse:true});
+  }
+  answers.sort(function(a,b){return b.corr-a.corr;});
+  return inside?answers.slice(0,4):(answers[0]||null);
+}
+function trackDots(ref,cur,W,H,pts,inside,pred){
+  var rh=halfGray(ref,W,H),ch=halfGray(cur,W,H);
+  var rq=halfGray(rh.g,rh.w,rh.h),cq=halfGray(ch.g,ch.w,ch.h),out=[];
+  for(var i=0;i<pts.length;i++){
+    var m=matchDot(ref,cur,W,H,pts[i],rh,ch,rq,cq,inside,pred);
+    if(inside){for(var j=0;j<m.length;j++){m[j].id=i;out.push(m[j]);}}
+    else if(m){m.id=i;out.push(m);}
+  }
+  return out;
+}
+function solve3(M,b){
+  var a=[[M[0],M[1],M[2],b[0]],[M[3],M[4],M[5],b[1]],[M[6],M[7],M[8],b[2]]];
+  for(var c=0;c<3;c++){
+    var q=c;for(var r=c+1;r<3;r++)if(Math.abs(a[r][c])>Math.abs(a[q][c]))q=r;
+    if(Math.abs(a[q][c])<1e-8)return null;
+    var t=a[c];a[c]=a[q];a[q]=t;
+    var d=a[c][c];for(var k=c;k<4;k++)a[c][k]/=d;
+    for(r=0;r<3;r++)if(r!==c){var f=a[r][c];for(k=c;k<4;k++)a[r][k]-=f*a[c][k];}
+  }
+  return [a[0][3],a[1][3],a[2][3]];
+}
+function fitAffineRaw(ps){
+  if(ps.length<3)return null;
+  var M=[0,0,0,0,0,0,0,0,0],bu=[0,0,0],bv=[0,0,0];
+  for(var i=0;i<ps.length;i++){
+    var p=ps[i],z=[p.x,p.y,1];
+    for(var r=0;r<3;r++)for(var c=0;c<3;c++)M[r*3+c]+=z[r]*z[c];
+    for(r=0;r<3;r++){bu[r]+=z[r]*p.u;bv[r]+=z[r]*p.v;}
+  }
+  var u=solve3(M,bu),v=solve3(M,bv);if(!u||!v)return null;
+  return {A:[u[0],u[1],v[0],v[1]],t:[u[2],v[2]]};
+}
+function affineErr(f,p){
+  return Math.hypot(f.A[0]*p.x+f.A[1]*p.y+f.t[0]-p.u,
+                    f.A[2]*p.x+f.A[3]*p.y+f.t[1]-p.v);
+}
+function uniqueAffineInliers(f,ps,lim){
+  var byId={};
+  for(var i=0;i<ps.length;i++){
+    var p=ps[i],e=affineErr(f,p),id=p.id==null?"p"+i:"f"+p.id;
+    if(e<=lim&&(!byId[id]||e<byId[id].e))byId[id]={p:p,e:e};
+  }
+  return Object.keys(byId).map(function(k){return byId[k].p;});
+}
+function fitAffineRobust(ps){
+  if(ps.length<7)return null;
+  var best=[];
+  /* 반복 글자에서 생기는 잘못된 짝을 제거한다. 큰 흔들림 모드는 오매칭이
+     늘 수 있으므로 충분한 RANSAC 반복과 비공선 삼각형을 사용한다. */
+  for(var it=0;it<1200;it++){
+    var tri=[],used={};
+    var guard=0;
+    while(tri.length<3&&guard++<30){
+      var k=Math.floor(Math.random()*ps.length),id=ps[k].id==null?k:ps[k].id;
+      if(!used[id]){used[id]=1;tri.push(ps[k]);}
+    }
+    if(tri.length<3)continue;
+    var area=Math.abs((tri[1].x-tri[0].x)*(tri[2].y-tri[0].y)-
+                      (tri[1].y-tri[0].y)*(tri[2].x-tri[0].x));
+    if(area<90)continue;
+    var f=fitAffineRaw(tri);if(!f)continue;
+    var ins=uniqueAffineInliers(f,ps,3.2);
+    if(ins.length>best.length)best=ins;
+  }
+  if(best.length<7)return null;
+  var fit=fitAffineRaw(best);
+  for(it=0;it<2;it++){
+    var es=best.map(function(p){return affineErr(fit,p);}),med=median(es),lim=Math.max(1.4,med*2.8);
+    best=uniqueAffineInliers(fit,ps,lim);
+    if(best.length<7)return null;fit=fitAffineRaw(best);
+  }
+  var sum=0;best.forEach(function(p){var e=affineErr(fit,p);sum+=e*e;});
+  fit.n=best.length;fit.rms=Math.sqrt(sum/best.length);return fit;
+}
+
+/* 같은 이름으로 기존 FFT 분석기를 대체한다. */
+analyzeFrame=function(imgData,W,H){
+  if(!S.reference||S.reference.W!==W||S.reference.H!==H)
+    return {ok:false,why:"needReference"};
+  var cur=rgbaToGray(imgData,W,H),ref=S.reference.gray;
+  /* 직전 움직임으로 먼저 예측하고 실패하면 ±100px 광역 탐색으로 자동 복구한다. */
+  var outPairs=trackDots(ref,cur,W,H,S.reference.outPts,false,S.motion);
+  var C=fitAffineRobust(outPairs);
+  if(!C&&S.motion){outPairs=trackDots(ref,cur,W,H,S.reference.outPts,false,null);C=fitAffineRobust(outPairs);}
+  if(!C||C.n<9){
+    S.motion=null;
+    var outSharp=edgeSharpness(cur,W,H,false)/(S.reference.sharpOut||1);
+    return {ok:false,why:"noDotsOut",message:outSharp<.42?
+      "렌즈 밖 선명도 "+Math.round(outSharp*100)+"% — 자동초점 재요청 중":
+      "기준 바깥 특징 "+S.reference.outPts.length+"개 중 "+outPairs.length+
+      "개 재인식 — 카메라를 잠시 멈춰 주세요"};
+  }
+  S.motion=C;
+  var inPairs=trackDots(ref,cur,W,H,S.reference.inPts,true,C);
+  var inside=fitAffineRobust(inPairs);
+  var matchedIds={};inPairs.forEach(function(p){matchedIds[p.id]=1;});
+  var matchedIn=Object.keys(matchedIds).length;
+  if(!inside||inside.n<8){
+    var inSharp=edgeSharpness(cur,W,H,true)/(S.reference.sharpIn||1);
+    return {ok:false,why:"noDotsIn",message:inSharp<.42?
+      "렌즈 안 선명도 "+Math.round(inSharp*100)+"% — 자동초점 재요청 중":
+      "렌즈 안 특징 "+S.reference.inPts.length+"개 중 "+matchedIn+
+      "개 재인식 — 렌즈 중앙을 맞춰 주세요"};
+  }
+  var invC=inv2(C.A);if(!invC)return {ok:false,why:"illCond"};
+  var L=mul2(invC,inside.A);
+  var c1=Math.hypot(C.A[0],C.A[2]),c2=Math.hypot(C.A[1],C.A[3]);
+  var dot=Math.abs((C.A[0]*C.A[1]+C.A[2]*C.A[3])/(c1*c2));
+  var scale=Math.sqrt(Math.abs(C.A[0]*C.A[3]-C.A[1]*C.A[2]));
+  var skew=Math.max(dot,Math.min(1,C.rms/7));
+  if(dot>.55)return {ok:false,why:"tilt",message:"기울기 "+Math.round(dot*100)+
+    "% — 작은 흔들림은 보정했지만 휴대폰을 조금 더 수평으로 해주세요"};
+  if(scale<.78||scale>1.28)return {ok:false,why:"moved"};
+  if(AUTO&&CAL.D){lastD=CAL.D/scale;if(lastD<120||lastD>2000)return {ok:false,why:"badDist"};}
+  var ccx=W*.5,ccy=H*.5,mx=C.A[0]*ccx+C.A[1]*ccy+C.t[0]-ccx,
+      my=C.A[2]*ccx+C.A[3]*ccy+C.t[1]-ccy;
+  return {ok:true,A:L,score:Math.min(C.n,inside.n),skew:skew,
+          outPitchPx:scale,outScale:scale,outCount:C.n,inCount:inside.n,
+          motionPx:Math.hypot(mx,my)};
+};
+
+/* ---------- 강건 집계 (중앙값 + MAD) ---------- */
+function median(a){if(!a.length)return NaN;
+  var s=a.slice().sort(function(p,q){return p-q;}),m=s.length>>1;
+  return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+function robustVec(list){
+  if(!list.length) return null;
+  var keys=["M","J0","J45"], med={}, k;
+  for(k=0;k<3;k++) med[keys[k]]=median(list.map(function(v){return v[keys[k]];}));
+  /* MAD 기반 이상치 제거 */
+  var devs=list.map(function(v){
+    return Math.abs(v.M-med.M)+Math.abs(v.J0-med.J0)+Math.abs(v.J45-med.J45);});
+  var mad=median(devs)||1e-6;
+  var kept=list.filter(function(v,i){return devs[i]<=Math.max(.2,mad*3);});
+  if(kept.length<3) kept=list;
+  var out={M:0,J0:0,J45:0};
+  for(k=0;k<3;k++) out[keys[k]]=median(kept.map(function(v){return v[keys[k]];}));
+  return {vec:out,n:kept.length,spread:mad};
+}
+
+/* ---------- 무안경 기준 보정 ---------- */
+function setReferenceUI(){
+  var box=$("refBox"), btn=$("refBtn");
+  box.classList.toggle("ready",!!S.reference);
+  if(!S.stream){
+    $("refTitle").textContent="무안경 기준이 필요합니다";
+    $("refState").textContent="카메라를 켠 뒤 안경 없이 기준을 잡아 주세요.";
+    btn.textContent="기준 잡기"; btn.disabled=true;
+  }else if(S.refMode){
+    $("refTitle").textContent="무안경 기준 측정 중";
+    $("refState").textContent="안경을 치우고 휴대폰을 움직이지 마세요.";
+    btn.textContent=Math.min(S.refSamples.length,REF_SAMPLE_TARGET)+" / "+REF_SAMPLE_TARGET; btn.disabled=true;
+  }else if(S.reference){
+    $("refTitle").textContent="무안경 기준 완료";
+    $("refState").textContent="기기와 책을 움직이지 말고 안경만 원 안에 넣으세요.";
+    btn.textContent="다시 잡기"; btn.disabled=false;
+  }else{
+    $("refTitle").textContent="무안경 기준이 필요합니다";
+    $("refState").textContent="안경을 모두 치운 상태에서 눌러 주세요.";
+    btn.textContent="기준 잡기"; btn.disabled=false;
+  }
+}
+
+function startReference(){
+  if(!S.stream){toast("먼저 카메라를 켜 주세요.");return;}
+  resetAutoSequence();
+  S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=true; S.samples=[]; S.bad=0;
+  renderLive(false); setReferenceUI();
+  setBanner("안경을 치우고 그대로 유지해 주세요","warn");
+}
+
+function finishReference(){
+  var list=S.refSamples;
+  S.refMode=false; S.refSamples=[];
+  if(!list.length){S.reference=null;setReferenceUI();return;}
+  var W=list[0].W,H=list[0].H,n=W*H,avg=new Uint8Array(n);
+  for(var i=0;i<n;i++){
+    var sum=0;for(var j=0;j<list.length;j++)sum+=list[j].gray[i];
+    avg[i]=Math.round(sum/list.length);
+  }
+  var inPts=selectDotFeatures(avg,W,H,true),outPts=selectDotFeatures(avg,W,H,false);
+  if(inPts.length<14||outPts.length<18){
+    S.reference=null; setReferenceUI();
+    setBanner("글자·모서리가 부족합니다 — 책을 화면 가득 비춰 주세요","bad");
+    toast("작은 글자가 원 안과 바깥에 모두 보이게 한 뒤 다시 잡아 주세요.");
+    return;
+  }
+  S.reference={gray:avg,W:W,H:H,inPts:inPts,outPts:outPts,
+               sharpIn:edgeSharpness(avg,W,H,true),
+               sharpOut:edgeSharpness(avg,W,H,false),
+               invA:[1,0,0,1],outPitchPx:1};
+  S.motion=null;
+  lastD=200;
+  S.samples=[]; S.noLens=0; setReferenceUI(); renderLive(false);
+  setBanner("기준 완료 — 안경렌즈를 원 안에 넣으세요","ok");
+  toast("무안경 책 배경 기준이 저장되었습니다.");
+}
+
+/* ---------- 카메라 자동초점 ---------- */
+async function setupAutoFocus(){
+  var track=S.stream&&S.stream.getVideoTracks()[0];
+  S.focusTrack=track||null;S.focusModes=[];S.focusBusy=false;S.lastFocusRetry=0;
+  if(!track)return false;
+  try{
+    var caps=track.getCapabilities?track.getCapabilities():{};
+    S.focusModes=Array.isArray(caps.focusMode)?caps.focusMode:[];
+    if(S.focusModes.indexOf("continuous")>=0){
+      await track.applyConstraints({advanced:[{focusMode:"continuous"}]});
+      return true;
+    }
+  }catch(e){}
+  /* 초점 제어 API가 없는 iPhone Safari도 카메라 자체의 연속 AF는 계속 동작한다. */
+  return false;
+}
+async function requestAutoFocus(silent){
+  if(!S.focusTrack||S.focusTrack.readyState==="ended")return false;
+  var now=Date.now();if(S.focusBusy||now-S.lastFocusRetry<1600)return false;
+  S.focusBusy=true;S.lastFocusRetry=now;
+  var ok=false;
+  try{
+    if(S.focusModes.indexOf("single-shot")>=0){
+      await S.focusTrack.applyConstraints({advanced:[{focusMode:"single-shot"}]});
+      ok=true;
+      await new Promise(function(resolve){setTimeout(resolve,450);});
+    }
+    if(S.focusModes.indexOf("continuous")>=0){
+      await S.focusTrack.applyConstraints({advanced:[{focusMode:"continuous"}]});
+      ok=true;
+    }
+  }catch(e){}
+  S.focusBusy=false;
+  if(!silent)toast(ok?"카메라 중앙에 자동초점을 다시 요청했습니다.":
+    "이 기기는 웹 초점 제어를 지원하지 않아 기본 자동초점을 사용합니다.");
+  return ok;
+}
+
+/* ---------- 카메라 ---------- */
+async function startCam(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    toast("이 브라우저는 카메라를 지원하지 않습니다."); return;}
+  stopCam();
+  try{
+    S.stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1440},
+             frameRate:{ideal:30}},audio:false});
+    $("vid").srcObject=S.stream;
+    await $("vid").play();
+    var afOn=await setupAutoFocus();
+    $("vid").classList.remove("hidden");
+    $("empty").classList.add("hidden");
+    resetAutoSequence();
+    S.samples=[]; S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false;
+    S.last=null; S.bad=0; setReferenceUI(); renderLive();
+    setBanner("먼저 안경 없이 ‘기준 잡기’를 눌러 주세요","warn");
+    clearInterval(S.timer);
+    S.timer=setInterval(tick,320);
+  }catch(e){
+    setBanner("화면을 눌러 카메라를 다시 켜 주세요","warn");
+    toast("카메라 권한을 허용한 뒤 촬영 화면을 눌러 주세요. (HTTPS 필요)");
+  }
+}
+function stopCam(){
+  resetAutoSequence();
+  clearInterval(S.timer); S.timer=null;
+  if(S.stream){S.stream.getTracks().forEach(function(t){t.stop();}); S.stream=null;}
+  $("vid").srcObject=null; $("vid").classList.add("hidden");
+  $("empty").classList.remove("hidden");
+  S.focusTrack=null;S.focusModes=[];S.focusBusy=false;
+  S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false; S.last=null;
+  setReferenceUI();
+}
+
+var WHY={noGrid:"글자·무늬가 안 보입니다 — 조명을 밝게",
+  noGridIn:"렌즈 안 무늬를 찾지 못했습니다",
+  noGridOut:"렌즈 바깥 무늬가 필요합니다",
+  noDotsIn:"렌즈 안쪽 글자를 기준 사진과 연결하지 못했습니다",
+  noDotsOut:"기준 촬영 이후 화면이 크게 움직였습니다 — 잠시 멈춰 주세요",
+  needReference:"무안경 기준을 먼저 잡아 주세요",
+  moved:"촬영 위치가 크게 바뀌었습니다 — 기준을 다시 잡으세요",
+  tilt:"기울었습니다 — 화면과 평행하게",
+  range:"배율이 범위를 벗어났습니다 — 거리 확인",
+  illCond:"점 변형 방향이 불안정합니다",
+  tooClose:"거리가 너무 짧습니다",
+  tooCoarse:"글자가 너무 큽니다 — 작은 글자가 많은 페이지를 사용하세요",
+  badDist:"자동 거리가 범위를 벗어났습니다 — 보정값 확인"};
+
+function tick(){
+  var v=$("vid"); if(!v.videoWidth) return;
+  var W=384, H=Math.round(W*v.videoHeight/v.videoWidth);
+  var cv=$("work"); cv.width=W; cv.height=H;
+  var ctx=cv.getContext("2d",{willReadFrequently:true});
+  ctx.drawImage(v,0,0,W,H);
+  var d=ctx.getImageData(0,0,W,H).data;
+
+  /* 기준 촬영은 분석보다 먼저 처리한다. 5장의 평균으로 센서 노이즈를 줄인다. */
+  if(S.refMode){
+    resetAutoSequence();
+    var gray=rgbaToGray(d,W,H);
+    var inTest=selectDotFeatures(gray,W,H,true),outTest=selectDotFeatures(gray,W,H,false);
+    if(inTest.length<14||outTest.length<18){
+      setBanner("작은 글자를 원 안과 바깥에 충분히 보이게 맞춰 주세요","bad");
+      return;
+    }
+    S.refSamples.push({gray:gray,W:W,H:H});
+    setReferenceUI();renderLive(false);
+    setBanner("무안경 기준 측정 중… "+Math.min(S.refSamples.length,REF_SAMPLE_TARGET)+"/"+REF_SAMPLE_TARGET,"warn");
+    if(S.refSamples.length>=REF_SAMPLE_TARGET)finishReference();
+    return;
+  }
+
+  var r=analyzeFrame(d,W,H);
+  if(r.ok){
+    S.bad=0; S.last=r;
+    if(AUTO) syncGeom();
+
+    if(!S.reference){
+      resetAutoSequence(); S.samples=[]; renderLive(false);
+      setBanner("안경을 치우고 ‘기준 잡기’를 먼저 눌러 주세요","warn");
+      return;
+    }
+
+    /* 기준 이후 줌/거리가 바뀌면 카메라 왜곡 보정도 더 이상 유효하지 않다. */
+    var pitchShift=Math.abs(r.outPitchPx-S.reference.outPitchPx)/S.reference.outPitchPx;
+    if(pitchShift>.20){
+      resetAutoSequence(); S.samples=[]; renderLive(false);
+      setBanner("촬영 위치가 바뀌었습니다 — 무안경 기준을 다시 잡으세요","bad");
+      return;
+    }
+
+    /* 랜덤 점 분석기에서 렌즈 밖 카메라 움직임은 이미 제거되었다. */
+    var measured=matrixToMeasurement(r.A);
+    if(!measured.ok){
+      resetAutoSequence(); S.samples=[]; renderLive(false);
+      setBanner(WHY[measured.why]||"측정 범위를 벗어났습니다","bad");
+      return;
+    }
+
+    /* 기준과 차이가 거의 없으면 안경이 없는 것으로 판정한다. */
+    if(measured.signal<MIN_LENS_POWER){
+      S.noLens=(S.noLens||0)+1; resetAutoSequence(); S.samples=[];
+      renderLive(false);
+      setBanner("안경이 감지되지 않습니다 — 렌즈를 원 안에 넣으세요","warn");
+      return;
+    }
+
+    S.noLens=0;
+    if(Date.now()<S.autoSaveCooldownUntil){
+      resetAutoSequence(); S.samples=[]; renderLive(false);
+      setBanner("반대쪽 렌즈를 원 안에 맞춰 주세요","ok");
+      return;
+    }
+    measured.vec._skew=r.skew;
+    S.samples.push(measured.vec);
+    if(S.samples.length>60) S.samples.shift();
+    addAutoSample(measured.vec,r.skew);
+  }else{
+    resetAutoSequence();
+    /* 랜덤 점을 계속 못 잡으면 예전 표본이 남지 않도록 비운다. */
+    S.bad=(S.bad||0)+1;
+    if((r.why==="noDotsIn"||r.why==="noDotsOut")&&S.bad>=2)requestAutoFocus(true);
+    if(S.bad>30 && S.samples.length){ S.samples=[]; }
+    setBanner(r.message||WHY[r.why]||"정렬 중…", "bad");
+  }
+  renderLive(r.ok);
+}
+
+function setBanner(msg,cls){
+  var b=$("banner"); b.textContent=msg; b.className="banner "+(cls||"");
+}
+
+function renderLive(gotOne){
+  var n=S.samples.length;
+  $("mLeft").textContent="유효 스캔 "+n;
+  var agg=robustVec(S.samples);
+  if(!agg||n<2){
+    cancelAutoSave();
+    $("lSph").textContent="—";$("lCyl").textContent="—";$("lAxis").textContent="—";
+    $("mFill").style.width="0%"; $("mRight").textContent="—";
+    $("saveBtn").disabled=true;
+    if(gotOne) setBanner("측정 중… 그대로 유지","warn");
+    return;
+  }
+  var rx=vecToRx(agg.vec);
+  /* 여러 프레임 평균이 다시 0D 부근이면 숫자를 표시하지 않는다. */
+  if(S.reference && Math.max(Math.abs(rx.sph),Math.abs(rx.sph+rx.cyl))<MIN_LENS_POWER){
+    cancelAutoSave();
+    S.samples=[];
+    $("lSph").textContent="—";$("lCyl").textContent="—";$("lAxis").textContent="—";
+    $("mFill").style.width="0%"; $("mRight").textContent="—";
+    $("saveBtn").disabled=true;
+    setBanner("안경이 감지되지 않습니다 — 렌즈를 원 안에 넣으세요","warn");
+    return;
+  }
+  /* 산포가 크면 숫자를 보여주지 않는다. 흔들리는 값을 자신 있게 띄우는 게 가장 나쁘다. */
+  if(agg.spread>1.1){
+    cancelAutoSave();
+    $("lSph").textContent="—";$("lCyl").textContent="—";$("lAxis").textContent="—";
+    $("mFill").style.width="0%";
+    $("mRight").textContent="±"+agg.spread.toFixed(2)+"D 불안정";
+    $("saveBtn").disabled=true;
+    setBanner("값이 흔들립니다 — 거리·정렬을 다시 맞추세요","bad");
+    return;
+  }
+  $("lSph").textContent=fmtP(q25(rx.sph));
+  $("lCyl").textContent=fmtP(q25(rx.cyl));
+  $("lAxis").textContent=Math.abs(rx.cyl)>=.25?Math.round(rx.axis)+"°":"—";
+
+  /* 안정도 = 최근 표본 산포 */
+  var conf=Math.max(0,Math.min(1,1-agg.spread/1.1));
+  var pct=Math.round(conf*Math.min(1,n/18)*100);
+  $("mFill").style.width=pct+"%";
+  $("mRight").textContent="±"+agg.spread.toFixed(2)+"D";
+  $("saveBtn").disabled=!(n>=5&&agg.spread<.65);
+  var auto=autoSaveState();
+  var tiltMsg="";
+  if(S.last&&S.last.skew>.35) tiltMsg=" · 기울어짐(보정됨)";
+  if(S.last&&S.last.motionPx>3) tiltMsg+=" · 흔들림 "+Math.round(S.last.motionPx)+"px 보정";
+  var canAuto=gotOne===true&&S.stream&&S.reference&&!S.refMode&&
+    Date.now()>=S.autoSaveCooldownUntil;
+  if(auto.ready&&canAuto){
+    setBanner("안정 측정 5/5 — 자동 저장 중","ok");
+    if(!S.autoSavePending){
+      S.autoSavePending=true;
+      S.autoSaveTimer=setTimeout(function(){
+        S.autoSaveTimer=null;
+        var check=autoSaveState();
+        if(!S.autoSavePending||!S.stream||!S.reference||S.refMode||!check.ready){
+          S.autoSavePending=false; renderLive(false); return;
+        }
+        S.autoSavePending=false;
+        saveEye(true);
+      },420);
+    }
+  }else{
+    cancelAutoSave();
+    if(n>=5&&agg.spread<.45){
+      if(Date.now()<S.autoSaveCooldownUntil)
+        setBanner("반대쪽 렌즈를 원 안에 맞춰 주세요","ok");
+      else setBanner("안정됨 — 자동 저장 확인 중 "+auto.count+"/5"+tiltMsg,"ok");
+    }else if(gotOne){
+      setBanner("자동 저장 확인 중 "+auto.count+"/5 — 그대로 유지"+tiltMsg,"warn");
+    }
+  }
+}
+
+/* ---------- 저장/결과 ---------- */
+function saveEye(automatic){
+  automatic=automatic===true;
+  var source=automatic?S.autoSamples.slice(-AUTO_SAVE_SAMPLES):S.samples;
+  var agg=robustVec(source); if(!agg) return;
+  resetAutoSequence();
+  var savedEye=S.eye;
+  S.results[S.eye]=vecToRx(agg.vec);
+  renderResults(); renderEyeTabs();
+  toast((S.eye==="R"?"우안":"좌안")+(automatic?" 자동 저장됨 (":" 저장됨 (")+agg.n+"표본)");
+  if(automatic&&navigator.vibrate) navigator.vibrate(80);
+  S.autoSaveCooldownUntil=automatic?Date.now()+AUTO_SAVE_SWITCH_DELAY:0;
+  S.samples=[]; renderLive();
+  /* 자동으로 반대쪽으로 */
+  if(!S.results[S.eye==="R"?"L":"R"]){
+    setEye(S.eye==="R"?"L":"R");
+    if(automatic) setBanner((savedEye==="R"?"우안":"좌안")+" 자동 저장 완료 — 반대쪽 렌즈를 맞춰 주세요","ok");
+  }else if(automatic){
+    setBanner("양안 자동 저장 완료","ok");
+  }
+}
+function renderResults(){
+  ["R","L"].forEach(function(e){
+    var rx=S.results[e];
+    var cells=[$("r"+e+"_s"),$("r"+e+"_c"),$("r"+e+"_a"),$("r"+e+"_e")];
+    if(!rx){cells.forEach(function(c){c.textContent="—";c.className="pending";});return;}
+    var ax=Math.abs(rx.cyl)>=.25;
+    cells[0].textContent=fmtP(q25(rx.sph));
+    cells[1].textContent=fmtP(q25(rx.cyl));
+    cells[2].textContent=ax?Math.round(rx.axis)+"°":"—";
+    cells[3].textContent=fmtP(q25(rx.sph+rx.cyl/2));
+    cells.forEach(function(c){c.className="";});
+  });
+}
+function renderEyeTabs(){
+  $("doneR").textContent=S.results.R?"✓ 저장됨":"";
+  $("doneL").textContent=S.results.L?"✓ 저장됨":"";
+}
+function setEye(e){
+  resetAutoSequence();
+  S.eye=e; S.samples=[];
+  $("eyeR").classList.toggle("on",e==="R");
+  $("eyeL").classList.toggle("on",e==="L");
+  /* 가이드 원을 좌/우로 살짝 이동 */
+  $("gCircle").setAttribute("cx", e==="R"?"150":"150");
+  renderLive();
+}
+
+/* ---------- 타깃 ---------- */
+/* 사용자가 제공한 ACUVUE 로고 한 장을 타겟으로 표시한다.
+   이미지가 HTML에 내장되어 별도 서버나 외부 이미지 연결 없이도 보인다. */
+var acuvueLogo = new Image();
+var acuvueLogoLoaded = false;
+acuvueLogo.onload = function(){
+  acuvueLogoLoaded = true;
+  if (!$("tgtView").classList.contains("hidden")) drawTarget();
+};
+acuvueLogo.onerror = function(){ acuvueLogoLoaded = false; };
+acuvueLogo.src = "data:image/webp;base64,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";
+
+function drawTarget(){
+  var cv=$("tgtCv"), r=cv.getBoundingClientRect();
+  var visibleW=r.width||window.innerWidth||390;
+  var visibleH=r.height||window.innerHeight||844;
+  var dpr=Math.min(2.5,window.devicePixelRatio||1);
+  cv.width=Math.round(visibleW*dpr);cv.height=Math.round(visibleH*dpr);
+  var c=cv.getContext("2d");
+  var w=cv.width,h=cv.height;
+  c.fillStyle="#060855";
+  c.fillRect(0,0,w,h);
+  if(acuvueLogoLoaded){
+    var iw=acuvueLogo.naturalWidth,ih=acuvueLogo.naturalHeight;
+    var scale=Math.min(w*.96/iw,h*.72/ih);
+    var dw=iw*scale,dh=ih*scale;
+    c.imageSmoothingEnabled=true;
+    c.imageSmoothingQuality="high";
+    c.drawImage(acuvueLogo,(w-dw)/2,(h-dh)/2,dw,dh);
+  }else{
+    c.fillStyle="#ffffff";
+    c.textAlign="center";c.textBaseline="middle";
+    c.font="300 "+Math.round(w*.17)+"px Arial, Helvetica, sans-serif";
+    c.fillText("ACUVUE",w/2,h/2,w*.9);
+  }
+}
+function openTarget(){$("tgtView").classList.remove("hidden");requestAnimationFrame(drawTarget);}
+function closeTarget(){
+  $("tgtView").classList.add("hidden");
+  if(TARGET_ONLY){
+    TARGET_ONLY=false;
+    try{history.replaceState(null,"",location.pathname);}catch(e){}
+    document.querySelector(".wrap").classList.remove("hidden");
+    startCam();
+  }
+}
+function targetURL(){
+  var u=new URL(location.href);
+  u.search="";u.hash="";u.searchParams.set("target","1");
+  return u.toString();
+}
+async function exportTargetPNG(){
+  if(!acuvueLogoLoaded){
+    try{await acuvueLogo.decode();acuvueLogoLoaded=true;}catch(e){}
+  }
+  drawTarget();
+  return new Promise(function(resolve,reject){
+    try{
+      $("tgtCv").toBlob(function(blob){
+        if(blob)resolve(blob);else reject(new Error("이미지 변환 실패"));
+      },"image/png");
+    }catch(e){reject(e);}
+  });
+}
+function downloadTargetImage(blob){
+  var u=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=u;a.download="ACUVUE_target.png";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(u);},5000);
+}
+async function shareTarget(){
+  // 배포된 웹사이트는 다른 기기에서 열 수 있는 URL을 우선 공유한다.
+  // 로컬 HTML은 file:// 링크를 공유해도 상대방에게 열리지 않으므로 이미지로 전송한다.
+  var isHosted=location.protocol==="https:"||
+    (location.protocol==="http:"&&!/^(localhost|127\.0\.0\.1)$/.test(location.hostname));
+  var url=targetURL();
+  if(isHosted){
+    if(navigator.share){
+      try{
+        await navigator.share({title:"ACUVUE 측정 타겟",text:"이 링크에서 ACUVUE 측정 타겟을 열어 주세요.",url:url});
+        return;
+      }catch(e){if(e&&e.name==="AbortError")return;}
+    }
+    try{await navigator.clipboard.writeText(url);toast("타겟 링크를 복사했습니다.");return;}
+    catch(e){window.prompt("타겟 링크를 복사해 전송하세요.",url);return;}
+  }
+  try{
+    var blob=await exportTargetPNG();
+    var file=new File([blob],"ACUVUE_target.png",{type:"image/png"});
+    if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+      try{
+        await navigator.share({title:"ACUVUE 측정 타겟",files:[file]});
+        return;
+      }catch(e){if(e&&e.name==="AbortError")return;}
+    }
+    downloadTargetImage(blob);
+    toast("타겟 이미지를 저장했습니다. 사진을 공유해 주세요.");
+  }catch(e){
+    toast("공유 이미지를 만들지 못했습니다. 온라인에서 다시 시도해 주세요.");
+  }
+}
+
+/* ---------- 데모 ---------- */
+function demo(){
+  stopCam();
+  S.samples=[];
+  var truth={sph:-2.00,cyl:-1.25,axis:30};
+  for(var i=0;i<26;i++){
+    var v=rxToVec(truth.sph,truth.cyl,truth.axis);
+    v.M+=(Math.random()-.5)*.16;
+    v.J0+=(Math.random()-.5)*.10;
+    v.J45+=(Math.random()-.5)*.10;
+    S.samples.push(v);
+  }
+  renderLive(true);
+  setBanner("데모 — 정답 -2.00 / -1.25 × 30°","ok");
+  toast("데모 데이터입니다 (실제 측정 아님)");
+}
+
+/* ---------- 이벤트 ---------- */
+$("eyeR").addEventListener("click",function(){setEye("R");});
+$("eyeL").addEventListener("click",function(){setEye("L");});
+$("refBtn").addEventListener("click",startReference);
+$("saveBtn").addEventListener("click",function(){saveEye(false);});
+$("resetBtn").addEventListener("click",function(){
+  resetAutoSequence();
+  S.samples=[];S.results={R:null,L:null};S.autoSaveCooldownUntil=0;
+  renderResults();renderEyeTabs();renderLive();
+  setBanner(S.reference?"저장 결과가 삭제되었습니다 — 다시 측정해 주세요":"초기화했습니다","warn");
+  toast("스캔과 우·좌안 저장 결과를 모두 삭제했습니다.");
+});
+$("stage").addEventListener("click",function(){if(!S.stream)startCam();});
+if($("tgtBtn")) $("tgtBtn").addEventListener("click",shareTarget);
+if($("tgtClose")) $("tgtClose").addEventListener("click",closeTarget);
+if($("tgtFs")) $("tgtFs").addEventListener("click",async function(){
+  try{ if(!document.fullscreenElement) await $("tgtView").requestFullscreen();
+       else await document.exitFullscreen();
+       setTimeout(drawTarget,120);
+  }catch(e){toast("전체화면을 사용할 수 없습니다.");}
+});
+$("helpBtn").addEventListener("click",function(){$("help").classList.remove("hidden");});
+$("helpClose").addEventListener("click",function(){$("help").classList.add("hidden");});
+$("help").addEventListener("click",function(e){if(e.target===$("help"))$("help").classList.add("hidden");});
+window.addEventListener("resize",function(){
+  if(!$("tgtView").classList.contains("hidden")) drawTarget();});
+
+syncGeom(); renderResults(); renderEyeTabs(); setReferenceUI(); renderLive();
+if(TARGET_ONLY){
+  document.querySelector(".wrap").classList.add("hidden");
+  openTarget();
+}else{
+  setTimeout(startCam,250);
+}
+})();
+</script>
+</body>
+</html>
