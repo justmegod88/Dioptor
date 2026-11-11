@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a0f18">
-<title>Power Matrix - Lens Meter</title>
+<title>Lens Meter | 3가지 알고리즘 동시 비교</title>
 <style>
   :root{
     --bg:#f4f8fd; --bg2:#eef5fb; --panel:#ffffff; --panel2:#f4f9ff;
@@ -169,7 +169,30 @@
   .toast.on{opacity:1;transform:translate(-50%,0)}
 
 
-  /* ACUVUE visual refresh: presentation only; measurement logic stays untouched. */
+  /* Three-path comparison view. All read the SAME reference and video frame. */
+  .compare-intro{margin:3px 0 8px;display:flex;align-items:center;gap:7px;color:#164a80;font-size:.78rem;font-weight:800}
+  .compare-intro span{font-size:.67rem;color:#6983a0;font-weight:600}
+  .algo-card{border:1px solid rgba(7,85,179,.16);border-radius:13px;background:rgba(255,255,255,.8);padding:10px;margin-top:8px}
+  .algo-card.primary{border-left:4px solid #0b72ca}
+  .algo-card.diopter{border-left:4px solid #7b70c7}
+  .algo-card.deflect{border-left:4px solid #159b9c}
+  .algo-name{font-size:.8rem;font-weight:850;color:#17365b;margin:0 0 2px}
+  .algo-caption{font-size:.68rem;color:#6983a0;margin:0 0 5px}
+  .algo-card .live{margin-top:5px;gap:6px}
+  .algo-card .cell{padding:7px 3px}
+  .algo-card .cell strong{font-size:1.09rem}
+  .algo-status{font-size:.69rem;color:#68809c;margin:7px 0 0;text-align:right}
+  .algo-status.warn{color:#aa6e0a}
+  .method-title{font-size:.82rem;font-weight:850;color:#134d91;margin:12px 0 5px}
+  .cmp-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;table-layout:fixed}
+  .cmp-table th,.cmp-table td{font-size:clamp(.62rem,2.8vw,.76rem);border-bottom:1px solid #dfebf7;padding:8px 2px;text-align:center;white-space:nowrap}
+  .cmp-table th{color:#637e9d;font-weight:700}
+  .cmp-table th:first-child,.cmp-table td:first-child{width:35%;text-align:left;padding-left:4px}
+  .cmp-table td{color:#0b5dab;font-weight:800}
+  .cmp-table td.label-a{color:#0755b3}.cmp-table td.label-b{color:#7464b2}.cmp-table td.label-c{color:#14898f}
+  .cmp-table tr:last-child td{border-bottom:0}
+  .method-note{font-size:.72rem;line-height:1.5;color:#647d9c;margin:9px 2px 0}
+  /* ACUVUE visual theme retained across the three-path comparison. */
   :root{
     --bg:#f4f7fc; --bg2:#edf3fa; --panel:#fff; --panel2:#f7f9fd;
     --line:rgba(0,69,153,.11); --line-strong:rgba(0,69,153,.22);
@@ -385,11 +408,37 @@
       <button id="refBtn" class="btn" type="button" disabled>기준 잡기</button>
     </div>
 
-    <div class="live">
-      <div class="cell"><span>SPH</span><strong id="lSph">—</strong></div>
-      <div class="cell"><span>CYL</span><strong id="lCyl">—</strong></div>
-      <div class="cell axis"><span>AXIS</span><strong id="lAxis">—</strong></div>
-    </div>
+    <div class="compare-intro">동일 촬영 · 3가지 계산 결과 <span>측정 중 실시간 비교</span></div>
+    <section class="algo-card primary" aria-label="기존 배율 방식">
+      <div class="algo-name">① 기존 배율 방식</div>
+      <div class="algo-caption">Affine → 주경선 배율 → 도수 · 기존 계산식 유지</div>
+      <div class="live">
+        <div class="cell"><span>SPH</span><strong id="lA_s">—</strong></div>
+        <div class="cell"><span>CYL</span><strong id="lA_c">—</strong></div>
+        <div class="cell axis"><span>AXIS</span><strong id="lA_a">—</strong></div>
+      </div>
+      <p class="algo-status" id="lA_status">측정 대기</p>
+    </section>
+    <section class="algo-card diopter" aria-label="디옵터 행렬 방식">
+      <div class="algo-name">② 디옵터 매트릭스</div>
+      <div class="algo-caption">Affine의 역행렬 → 굴절력 행렬 → 고유값</div>
+      <div class="live">
+        <div class="cell"><span>SPH</span><strong id="lB_s">—</strong></div>
+        <div class="cell"><span>CYL</span><strong id="lB_c">—</strong></div>
+        <div class="cell axis"><span>AXIS</span><strong id="lB_a">—</strong></div>
+      </div>
+      <p class="algo-status" id="lB_status">측정 대기</p>
+    </section>
+    <section class="algo-card deflect" aria-label="광선 편향 파워 매트릭스 방식">
+      <div class="algo-name">③ 광선 편향 · Power Matrix</div>
+      <div class="algo-caption">점별 이동 벡터 → 광선 편향 회귀 → 굴절력 행렬</div>
+      <div class="live">
+        <div class="cell"><span>SPH</span><strong id="lC_s">—</strong></div>
+        <div class="cell"><span>CYL</span><strong id="lC_c">—</strong></div>
+        <div class="cell axis"><span>AXIS</span><strong id="lC_a">—</strong></div>
+      </div>
+      <p class="algo-status" id="lC_status">측정 대기</p>
+    </section>
     <div class="meterbar"><i id="mFill"></i></div>
     <div class="meterrow"><span id="mLeft">유효 스캔 0</span><span id="mRight">—</span></div>
 
@@ -399,20 +448,23 @@
     </div>
   </div>
 
-  <!-- 4. 결과 -->
+  <!-- 4. 알고리즘별 결과 비교 -->
   <div class="card">
-    <table class="rxtable">
-      <thead><tr><th></th><th>SPH</th><th>CYL</th><th>AXIS</th><th>SE</th></tr></thead>
-      <tbody>
-        <tr><td class="eye">우 OD</td>
-          <td id="rR_s" class="pending">—</td><td id="rR_c" class="pending">—</td>
-          <td id="rR_a" class="pending">—</td><td id="rR_e" class="pending">—</td></tr>
-        <tr><td class="eye">좌 OS</td>
-          <td id="rL_s" class="pending">—</td><td id="rL_c" class="pending">—</td>
-          <td id="rL_a" class="pending">—</td><td id="rL_e" class="pending">—</td></tr>
-      </tbody>
-    </table>
-    <div class="disc"><span>⚠</span><span>대략적 추정값입니다. 렌즈미터·검안을 대신할 수 없고 처방·판매에 사용할 수 없습니다.</span></div>
+    <div class="compare-intro">좌·우안 알고리즘 결과 비교 <span>같은 촬영에서 자동 계산</span></div>
+    <div class="method-title">우안 (OD)</div>
+    <table class="cmp-table"><thead><tr><th>계산 방식</th><th>SPH</th><th>CYL</th><th>AXIS</th><th>SE</th></tr></thead><tbody>
+      <tr><td class="label-a">① 배율</td><td id="rR_A_s">—</td><td id="rR_A_c">—</td><td id="rR_A_a">—</td><td id="rR_A_e">—</td></tr>
+      <tr><td class="label-b">② 디옵터</td><td id="rR_B_s">—</td><td id="rR_B_c">—</td><td id="rR_B_a">—</td><td id="rR_B_e">—</td></tr>
+      <tr><td class="label-c">③ 편향 PM</td><td id="rR_C_s">—</td><td id="rR_C_c">—</td><td id="rR_C_a">—</td><td id="rR_C_e">—</td></tr>
+    </tbody></table>
+    <div class="method-title">좌안 (OS)</div>
+    <table class="cmp-table"><thead><tr><th>계산 방식</th><th>SPH</th><th>CYL</th><th>AXIS</th><th>SE</th></tr></thead><tbody>
+      <tr><td class="label-a">① 배율</td><td id="rL_A_s">—</td><td id="rL_A_c">—</td><td id="rL_A_a">—</td><td id="rL_A_e">—</td></tr>
+      <tr><td class="label-b">② 디옵터</td><td id="rL_B_s">—</td><td id="rL_B_c">—</td><td id="rL_B_a">—</td><td id="rL_B_e">—</td></tr>
+      <tr><td class="label-c">③ 편향 PM</td><td id="rL_C_s">—</td><td id="rL_C_c">—</td><td id="rL_C_a">—</td><td id="rL_C_e">—</td></tr>
+    </tbody></table>
+    <p class="method-note">②는 변형 행렬을 디옵터 행렬로 변환하고, ③은 점별 이동 벡터에서 직접 행렬을 회귀합니다. 두 방식은 공통 광학 모델을 사용하므로 독립적인 측정 원리나 특허 비침해가 확인된 것은 아닙니다.</p>
+    <div class="disc"><span>⚠</span><span>연구용 비교 화면입니다. 실측 보정·검증 전의 추정값이며 렌즈미터·검안을 대신하거나 처방·판매에 사용할 수 없습니다.</span></div>
   </div>
 </div>
 
@@ -453,12 +505,12 @@
         <li>렌즈 반사광을 피하고, 파란 원의 안쪽과 바깥쪽 모두에 작은 글자가 보여야 합니다.</li>
         <li>안경을 <b>중간(50%)</b>에 두면 거리 오차의 영향이 최소가 됩니다.</li>
       </ul>
-      <h3>원리</h3>
-      <p>무안경 기준 사진의 글자·모서리를 현재 영상에서 다시 찾아 <b>렌즈 밖의 카메라 움직임</b>과
-      <b>렌즈 안의 방향별 변형</b>을 각각 계산합니다. 바깥쪽 변형을 제거한 배율 행렬 A의
-      고유값에서 두 주경선 배율 m₁·m₂를 분리하고,
-      <b>F = (1 − 1/m)/e</b>, <b>e = ab/(a+b)</b> 로 각 경선의 도수를 계산합니다.
-      책의 비주기적인 글자·문단 배열을 사용하므로 규칙적인 격자의 주기 오인식이 없습니다.</p>
+       <h3>세 가지 계산 방식</h3>
+       <p>동일한 무안경 기준 영상과 렌즈 영상을 비교하며 렌즈 밖 특징점으로 카메라 움직임을 보정합니다.
+       <b>① 기존 배율:</b> Affine과 주경선 배율을 이용한 도수 산출.
+       <b>② 디옵터 매트릭스:</b> 정렬된 Affine의 역행렬에서 도수행렬 추정.
+       <b>③ 광선 편향 Power Matrix:</b> 렌즈 안 점별 변위에 광학 거리 관계를 적용한 회귀.
+       세 방식은 공통의 광학 측정 정보를 쓰며 특허 회피 여부는 별도로 확인해야 합니다.</p>
       <p>여러 프레임을 모아 <b>중앙값 + MAD 이상치 제거</b>로 합칩니다. 흔들린 프레임 몇 장은 결과를 오염시키지 않습니다.</p>
       <h3>한계</h3>
       <p>박막 렌즈 근사를 씁니다. 렌즈 두께·굴절률(1.50~1.74)·비구면 설계에 따라 계통 오차가 남고,
@@ -481,8 +533,13 @@ var $=function(id){return document.getElementById(id);};
 /* ---------- 상태 ---------- */
 var S={
   stream:null, timer:null, eye:"R",
-  samples:[],            // {M,J0,J45,score}
+  samples:[],            // 자동저장 제어용 대표 알고리즘 표본
   results:{R:null,L:null},
+  methodSamples:{A:[],B:[],C:[]},
+  measureFrames:[],
+  autoFrameSamples:[],
+  comparisonResults:{R:{A:null,B:null,C:null},L:{A:null,B:null,C:null}},
+  driverKey:null,
   reference:null,        // 무안경 랜덤 점 기준 영상과 추적점
   motion:null,           // 직전 프레임의 짐벌 보정 affine
   focusTrack:null,
@@ -515,6 +572,7 @@ function cancelAutoSave(){
 function resetAutoSequence(){
   cancelAutoSave();
   S.autoSamples=[];
+  S.autoFrameSamples=[];
 }
 
 function vecStep(a,b){
@@ -531,13 +589,23 @@ function autoSaveState(){
       recent.every(function(v){return isFinite(v._skew)&&v._skew<=AUTO_SAVE_MAX_SKEW;})};
 }
 
-function addAutoSample(vec,skew){
+function addAutoSample(vec,skew,frameBundle){
   if(!isFinite(skew)||skew>AUTO_SAVE_MAX_SKEW){resetAutoSequence();return;}
   var prev=S.autoSamples.length?S.autoSamples[S.autoSamples.length-1]:null;
-  if(prev&&vecStep(prev,vec)>AUTO_SAVE_MAX_STEP) S.autoSamples=[];
+  if(prev&&vecStep(prev,vec)>AUTO_SAVE_MAX_STEP){S.autoSamples=[];S.autoFrameSamples=[];}
   vec._skew=skew;
   S.autoSamples.push(vec);
+  S.autoFrameSamples.push(frameBundle||{});
   if(S.autoSamples.length>AUTO_SAVE_SAMPLES) S.autoSamples.shift();
+  if(S.autoFrameSamples.length>AUTO_SAVE_SAMPLES)S.autoFrameSamples.shift();
+}
+
+function clearMeasurementSamples(){
+  resetAutoSequence();
+  S.samples=[];
+  S.methodSamples={A:[],B:[],C:[]};
+  S.measureFrames=[];
+  S.driverKey=null;
 }
 
 /* ---------- 광학 ---------- */
@@ -795,6 +863,22 @@ function matrixToMeasurement(A){
 
 
 
+/* ---------- ② Diopter Matrix: inverse of the camera-corrected affine ----------
+   This is a distinct calculation PATH, not independent optical information.
+   Thin-lens/paraxial exact mapping: P = sym((I - L^-1)/e).
+   Antisymmetric (rotation) part is suppressed before eigen-decomposition. */
+function diopterMatrixToMeasurement(A){
+  if(!A)return {ok:false,why:"illCond"};
+  var pr=principal(A);
+  if(pr.m1<.35||pr.m1>2.6||pr.m2<.35||pr.m2>2.6)
+    return {ok:false,why:"range"};
+  var inv=inv2(A),eM=geom().eM;
+  if(!inv||eM<.03)return {ok:false,why:"illCond"};
+  var p00=(1-inv[0])/eM,p01=-(inv[1]+inv[2])/(2*eM),p11=(1-inv[3])/eM;
+  var asym=Math.abs(inv[1]-inv[2])/Math.max(.001,Math.hypot(inv[0]-1,inv[1],inv[2],inv[3]-1));
+  return powerMatrixToMeasurement({P:[p00,p01,p01,p11],condition:1,asymmetry:asym,rms:0,count:0});
+}
+
 /* ---------- 변위 기반 Optical Power Matrix ----------
    렌즈 밖 특징으로 구한 카메라 변환 C를 각 렌즈 안 특징점에서 제거한 뒤,
    기준 위치 r과 잔여 변위 d의 선형 관계 d = e P r + t를 직접 회귀한다.
@@ -846,8 +930,15 @@ function estimatePowerMatrixFromPairs(pairs,C,insideFit,eM){
   var b00=d00*i00+d01*i01, b01=d00*i01+d01*i11;
   var b10=d10*i00+d11*i01, b11=d10*i01+d11*i11;
 
-  /* 1차 근축 모델 P = B/e. 비대칭분은 추적 노이즈/회전이므로 제거한다. */
-  var p00=b00/eM,p01=.5*(b01+b10)/eM,p11=b11/eM;
+  /* Displacements directly estimate B = (A-I). Convert via the SAME
+     finite-distance thin-lens projection used by the legacy algorithm:
+     P = (I - (I+B)^-1)/e. A naive P=B/e is only first order and
+     underestimates high minus powers; retain the actual ray-field fit. */
+  var invMeasured=inv2([1+b00,b01,b10,1+b11]);
+  if(!invMeasured)return null;
+  var p00=(1-invMeasured[0])/eM,
+      p01=-(invMeasured[1]+invMeasured[2])/(2*eM),
+      p11=(1-invMeasured[3])/eM;
   var asym=Math.abs(b01-b10)/Math.max(.001,Math.hypot(b00,b01,b10,b11));
 
   var err=0;
@@ -1165,7 +1256,7 @@ analyzeFrame=function(imgData,W,H){
   var invC=inv2(C.A);if(!invC)return {ok:false,why:"illCond"};
   var L=mul2(invC,inside.A); /* 기존 비교/진단용으로 유지 */
   var pm=estimatePowerMatrixFromPairs(inPairs,C,inside,geom().eM);
-  if(!pm)return {ok:false,why:"illCond",message:"특징점이 렌즈 전체에 고르게 보이도록 타겟 위치를 조정해 주세요"};
+  /* C may fail independently: do not reject the shared frame for A/B. */
   var c1=Math.hypot(C.A[0],C.A[2]),c2=Math.hypot(C.A[1],C.A[3]);
   var dot=Math.abs((C.A[0]*C.A[1]+C.A[2]*C.A[3])/(c1*c2));
   var scale=Math.sqrt(Math.abs(C.A[0]*C.A[3]-C.A[1]*C.A[2]));
@@ -1225,8 +1316,8 @@ function setReferenceUI(){
 
 function startReference(){
   if(!S.stream){toast("먼저 카메라를 켜 주세요.");return;}
-  resetAutoSequence();
-  S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=true; S.samples=[]; S.bad=0;
+  clearMeasurementSamples();
+  S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=true; S.bad=0;
   renderLive(false); setReferenceUI();
   setBanner("안경을 치우고 그대로 유지해 주세요","warn");
 }
@@ -1253,7 +1344,7 @@ function finishReference(){
                invA:[1,0,0,1],outPitchPx:1};
   S.motion=null;
   lastD=200;
-  S.samples=[]; S.noLens=0; setReferenceUI(); renderLive(false);
+  clearMeasurementSamples(); S.noLens=0; setReferenceUI(); renderLive(false);
   setBanner("기준 완료 — 안경렌즈를 원 안에 넣으세요","ok");
   toast("무안경 책 배경 기준이 저장되었습니다.");
 }
@@ -1310,8 +1401,8 @@ async function startCam(){
     var afOn=await setupAutoFocus();
     $("vid").classList.remove("hidden");
     $("empty").classList.add("hidden");
-    resetAutoSequence();
-    S.samples=[]; S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false;
+    clearMeasurementSamples();
+    S.reference=null; S.motion=null; S.refSamples=[]; S.refMode=false;
     S.last=null; S.bad=0; setReferenceUI(); renderLive();
     setBanner("먼저 안경 없이 ‘기준 잡기’를 눌러 주세요","warn");
     clearInterval(S.timer);
@@ -1322,7 +1413,7 @@ async function startCam(){
   }
 }
 function stopCam(){
-  resetAutoSequence();
+  clearMeasurementSamples();
   clearInterval(S.timer); S.timer=null;
   if(S.stream){S.stream.getTracks().forEach(function(t){t.stop();}); S.stream=null;}
   $("vid").srcObject=null; $("vid").classList.add("hidden");
@@ -1376,7 +1467,7 @@ function tick(){
     if(AUTO) syncGeom();
 
     if(!S.reference){
-      resetAutoSequence(); S.samples=[]; renderLive(false);
+      clearMeasurementSamples(); renderLive(false);
       setBanner("안경을 치우고 ‘기준 잡기’를 먼저 눌러 주세요","warn");
       return;
     }
@@ -1384,44 +1475,62 @@ function tick(){
     /* 기준 이후 줌/거리가 바뀌면 카메라 왜곡 보정도 더 이상 유효하지 않다. */
     var pitchShift=Math.abs(r.outPitchPx-S.reference.outPitchPx)/S.reference.outPitchPx;
     if(pitchShift>.20){
-      resetAutoSequence(); S.samples=[]; renderLive(false);
+      clearMeasurementSamples(); renderLive(false);
       setBanner("촬영 위치가 바뀌었습니다 — 무안경 기준을 다시 잡으세요","bad");
       return;
     }
 
-    /* 랜덤 점 분석기에서 렌즈 밖 카메라 움직임은 이미 제거되었다. */
-    /* 배율 m1,m2를 거치지 않고 잔여 변위장에서 Optical Power Matrix를 직접 추정 */
-    var measured=powerMatrixToMeasurement(r.P);
-    if(!measured.ok){
-      resetAutoSequence(); S.samples=[]; renderLive(false);
-      setBanner(WHY[measured.why]||"측정 범위를 벗어났습니다","bad");
+    /* SAME camera-corrected frame; 3 independent code paths, shared optical signal. */
+    var methods={
+      A:matrixToMeasurement(r.A),
+      B:diopterMatrixToMeasurement(r.A),
+      C:powerMatrixToMeasurement(r.P)
+    };
+    var valid={},signal=0;
+    ["A","B","C"].forEach(function(k){
+      if(methods[k]&&methods[k].ok){valid[k]=methods[k].vec;signal=Math.max(signal,methods[k].signal);}
+    });
+    var key=valid.A?"A":valid.B?"B":valid.C?"C":null;
+    if(!key){
+      resetAutoSequence();renderLive(false);
+      setBanner("세 방식 모두 계산 실패 — 거리·특징점 분포를 확인하세요","bad");
       return;
     }
-
-    /* 기준과 차이가 거의 없으면 안경이 없는 것으로 판정한다. */
-    if(measured.signal<MIN_LENS_POWER){
-      S.noLens=(S.noLens||0)+1; resetAutoSequence(); S.samples=[];
-      renderLive(false);
+    if(signal<MIN_LENS_POWER){
+      S.noLens=(S.noLens||0)+1;
+      clearMeasurementSamples();renderLive(false);
       setBanner("안경이 감지되지 않습니다 — 렌즈를 원 안에 넣으세요","warn");
       return;
     }
-
     S.noLens=0;
     if(Date.now()<S.autoSaveCooldownUntil){
-      resetAutoSequence(); S.samples=[]; renderLive(false);
+      clearMeasurementSamples();renderLive(false);
       setBanner("반대쪽 렌즈를 원 안에 맞춰 주세요","ok");
       return;
     }
-    measured.vec._skew=r.skew;
-    S.samples.push(measured.vec);
-    if(S.samples.length>60) S.samples.shift();
-    addAutoSample(measured.vec,r.skew);
+    /* Avoid combining A/B/C in the automatic-save driver series. */
+    if(S.driverKey&&S.driverKey!==key){
+      S.samples=[];resetAutoSequence();
+    }
+    S.driverKey=key;
+    ["A","B","C"].forEach(function(k){
+      if(!valid[k])return;
+      S.methodSamples[k].push(valid[k]);
+      if(S.methodSamples[k].length>60)S.methodSamples[k].shift();
+    });
+    S.measureFrames.push(valid);
+    if(S.measureFrames.length>60)S.measureFrames.shift();
+    var driver=valid[key];
+    driver._skew=r.skew;
+    S.samples.push(driver);
+    if(S.samples.length>60)S.samples.shift();
+    addAutoSample(driver,r.skew,valid);
   }else{
     resetAutoSequence();
     /* 랜덤 점을 계속 못 잡으면 예전 표본이 남지 않도록 비운다. */
     S.bad=(S.bad||0)+1;
     if((r.why==="noDotsIn"||r.why==="noDotsOut")&&S.bad>=2)requestAutoFocus(true);
-    if(S.bad>30 && S.samples.length){ S.samples=[]; }
+    if(S.bad>30 && S.samples.length){ clearMeasurementSamples(); }
     setBanner(r.message||WHY[r.why]||"정렬 중…", "bad");
   }
   renderLive(r.ok);
@@ -1431,113 +1540,120 @@ function setBanner(msg,cls){
   var b=$("banner"); b.textContent=msg; b.className="banner "+(cls||"");
 }
 
+function renderMethodCards(){
+  ["A","B","C"].forEach(function(k){
+    var list=S.methodSamples[k],agg=robustVec(list),status=$("l"+k+"_status");
+    var rx=agg&&list.length>=2?vecToRx(agg.vec):null;
+    var stable=rx&&agg.spread<=1.1;
+    var cells=[$("l"+k+"_s"),$("l"+k+"_c"),$("l"+k+"_a")];
+    cells[0].textContent=stable?fmtP(q25(rx.sph)):"—";
+    cells[1].textContent=stable?fmtP(q25(rx.cyl)):"—";
+    cells[2].textContent=stable&&Math.abs(rx.cyl)>=.25?Math.round(rx.axis)+"°":"—";
+    status.textContent=!list.length?"측정 대기 / 유효한 계산 없음":
+      list.length<2?"1개 표본 · 추가 촬영 필요":
+      !stable?"산포 ±"+agg.spread.toFixed(2)+"D · 불안정":
+      list.length+"개 표본 · 산포 ±"+agg.spread.toFixed(2)+"D";
+    status.classList.toggle("warn",list.length>0&&!stable);
+  });
+}
 function renderLive(gotOne){
+  renderMethodCards();
   var n=S.samples.length;
-  $("mLeft").textContent="유효 스캔 "+n;
+  $("mLeft").textContent="대표 스캔 "+n;
   var agg=robustVec(S.samples);
   if(!agg||n<2){
     cancelAutoSave();
-    $("lSph").textContent="—";$("lCyl").textContent="—";$("lAxis").textContent="—";
-    $("mFill").style.width="0%"; $("mRight").textContent="—";
+    $("mFill").style.width="0%";$("mRight").textContent="—";
     $("saveBtn").disabled=true;
-    if(gotOne) setBanner("측정 중… 그대로 유지","warn");
+    if(gotOne)setBanner("3가지 방식 계산 중… 그대로 유지","warn");
     return;
   }
   var rx=vecToRx(agg.vec);
-  /* 여러 프레임 평균이 다시 0D 부근이면 숫자를 표시하지 않는다. */
-  if(S.reference && Math.max(Math.abs(rx.sph),Math.abs(rx.sph+rx.cyl))<MIN_LENS_POWER){
-    cancelAutoSave();
-    S.samples=[];
-    $("lSph").textContent="—";$("lCyl").textContent="—";$("lAxis").textContent="—";
-    $("mFill").style.width="0%"; $("mRight").textContent="—";
+  if(S.reference&&Math.max(Math.abs(rx.sph),Math.abs(rx.sph+rx.cyl))<MIN_LENS_POWER){
+    clearMeasurementSamples(); renderMethodCards();
+    $("mFill").style.width="0%";$("mRight").textContent="—";
     $("saveBtn").disabled=true;
     setBanner("안경이 감지되지 않습니다 — 렌즈를 원 안에 넣으세요","warn");
     return;
   }
-  /* 산포가 크면 숫자를 보여주지 않는다. 흔들리는 값을 자신 있게 띄우는 게 가장 나쁘다. */
   if(agg.spread>1.1){
     cancelAutoSave();
-    $("lSph").textContent="—";$("lCyl").textContent="—";$("lAxis").textContent="—";
-    $("mFill").style.width="0%";
-    $("mRight").textContent="±"+agg.spread.toFixed(2)+"D 불안정";
+    $("mFill").style.width="0%";$("mRight").textContent="±"+agg.spread.toFixed(2)+"D 불안정";
     $("saveBtn").disabled=true;
-    setBanner("값이 흔들립니다 — 거리·정렬을 다시 맞추세요","bad");
+    setBanner("측정값이 흔들립니다 — 거리·정렬을 다시 맞추세요","bad");
     return;
   }
-  $("lSph").textContent=fmtP(q25(rx.sph));
-  $("lCyl").textContent=fmtP(q25(rx.cyl));
-  $("lAxis").textContent=Math.abs(rx.cyl)>=.25?Math.round(rx.axis)+"°":"—";
-
-  /* 안정도 = 최근 표본 산포 */
   var conf=Math.max(0,Math.min(1,1-agg.spread/1.1));
   var pct=Math.round(conf*Math.min(1,n/18)*100);
   $("mFill").style.width=pct+"%";
   $("mRight").textContent="±"+agg.spread.toFixed(2)+"D";
   $("saveBtn").disabled=!(n>=5&&agg.spread<.65);
-  var auto=autoSaveState();
-  var tiltMsg="";
-  if(S.last&&S.last.skew>.35) tiltMsg=" · 기울어짐(보정됨)";
-  if(S.last&&S.last.motionPx>3) tiltMsg+=" · 흔들림 "+Math.round(S.last.motionPx)+"px 보정";
-  var canAuto=gotOne===true&&S.stream&&S.reference&&!S.refMode&&
-    Date.now()>=S.autoSaveCooldownUntil;
+  var auto=autoSaveState(),tiltMsg="";
+  if(S.last&&S.last.skew>.35)tiltMsg=" · 기울어짐(보정됨)";
+  if(S.last&&S.last.motionPx>3)tiltMsg+=" · 흔들림 "+Math.round(S.last.motionPx)+"px 보정";
+  var canAuto=gotOne===true&&S.stream&&S.reference&&!S.refMode&&Date.now()>=S.autoSaveCooldownUntil;
   if(auto.ready&&canAuto){
-    setBanner("안정 측정 5/5 — 자동 저장 중","ok");
+    setBanner("안정 측정 5/5 — 3방식 결과 저장 중","ok");
     if(!S.autoSavePending){
       S.autoSavePending=true;
       S.autoSaveTimer=setTimeout(function(){
         S.autoSaveTimer=null;
         var check=autoSaveState();
         if(!S.autoSavePending||!S.stream||!S.reference||S.refMode||!check.ready){
-          S.autoSavePending=false; renderLive(false); return;
+          S.autoSavePending=false;renderLive(false);return;
         }
-        S.autoSavePending=false;
-        saveEye(true);
+        S.autoSavePending=false;saveEye(true);
       },420);
     }
   }else{
     cancelAutoSave();
     if(n>=5&&agg.spread<.45){
-      if(Date.now()<S.autoSaveCooldownUntil)
-        setBanner("반대쪽 렌즈를 원 안에 맞춰 주세요","ok");
-      else setBanner("안정됨 — 자동 저장 확인 중 "+auto.count+"/5"+tiltMsg,"ok");
-    }else if(gotOne){
-      setBanner("자동 저장 확인 중 "+auto.count+"/5 — 그대로 유지"+tiltMsg,"warn");
-    }
+      if(Date.now()<S.autoSaveCooldownUntil)setBanner("반대쪽 렌즈를 원 안에 맞춰 주세요","ok");
+      else setBanner("안정됨 — 3방식 저장 확인 "+auto.count+"/5"+tiltMsg,"ok");
+    }else if(gotOne)setBanner("3방식 자동 저장 확인 "+auto.count+"/5 — 그대로 유지"+tiltMsg,"warn");
   }
 }
 
 /* ---------- 저장/결과 ---------- */
 function saveEye(automatic){
   automatic=automatic===true;
+  var frames=automatic?S.autoFrameSamples.slice(-AUTO_SAVE_SAMPLES):S.measureFrames;
   var source=automatic?S.autoSamples.slice(-AUTO_SAVE_SAMPLES):S.samples;
-  var agg=robustVec(source); if(!agg) return;
-  resetAutoSequence();
+  var agg=robustVec(source);if(!agg)return;
+  var grouped={A:[],B:[],C:[]};
+  frames.forEach(function(f){["A","B","C"].forEach(function(k){if(f[k])grouped[k].push(f[k]);});});
+  var saved={A:null,B:null,C:null},count={A:0,B:0,C:0};
+  ["A","B","C"].forEach(function(k){
+    var a=grouped[k].length>=2?robustVec(grouped[k]):null;
+    if(a&&a.spread<=1.1){saved[k]=vecToRx(a.vec);count[k]=a.n;}
+  });
+  if(!saved.A&&!saved.B&&!saved.C){toast("세 방식의 유효한 저장 결과가 없습니다.");return;}
   var savedEye=S.eye;
-  S.results[S.eye]=vecToRx(agg.vec);
-  renderResults(); renderEyeTabs();
-  toast((S.eye==="R"?"우안":"좌안")+(automatic?" 자동 저장됨 (":" 저장됨 (")+agg.n+"표본)");
-  if(automatic&&navigator.vibrate) navigator.vibrate(80);
+  S.comparisonResults[S.eye]=saved;
+  S.results[S.eye]=saved.A||saved.B||saved.C; /* selection/done flags only */
+  renderResults();renderEyeTabs();
+  resetAutoSequence();
+  toast((S.eye==="R"?"우안":"좌안")+(automatic?" 자동 저장":" 저장")+" · "+
+    ["A","B","C"].filter(function(k){return saved[k];}).length+"개 방식");
+  if(automatic&&navigator.vibrate)navigator.vibrate(80);
   S.autoSaveCooldownUntil=automatic?Date.now()+AUTO_SAVE_SWITCH_DELAY:0;
-  S.samples=[]; renderLive();
-  /* 자동으로 반대쪽으로 */
+  clearMeasurementSamples();renderLive();
   if(!S.results[S.eye==="R"?"L":"R"]){
     setEye(S.eye==="R"?"L":"R");
-    if(automatic) setBanner((savedEye==="R"?"우안":"좌안")+" 자동 저장 완료 — 반대쪽 렌즈를 맞춰 주세요","ok");
-  }else if(automatic){
-    setBanner("양안 자동 저장 완료","ok");
-  }
+    if(automatic)setBanner((savedEye==="R"?"우안":"좌안")+" 자동 저장 완료 — 반대쪽 렌즈를 맞춰 주세요","ok");
+  }else if(automatic)setBanner("양안 자동 저장 완료 — 아래 비교표를 확인하세요","ok");
 }
 function renderResults(){
-  ["R","L"].forEach(function(e){
-    var rx=S.results[e];
-    var cells=[$("r"+e+"_s"),$("r"+e+"_c"),$("r"+e+"_a"),$("r"+e+"_e")];
-    if(!rx){cells.forEach(function(c){c.textContent="—";c.className="pending";});return;}
-    var ax=Math.abs(rx.cyl)>=.25;
-    cells[0].textContent=fmtP(q25(rx.sph));
-    cells[1].textContent=fmtP(q25(rx.cyl));
-    cells[2].textContent=ax?Math.round(rx.axis)+"°":"—";
-    cells[3].textContent=fmtP(q25(rx.sph+rx.cyl/2));
-    cells.forEach(function(c){c.className="";});
+  ["R","L"].forEach(function(eye){
+    ["A","B","C"].forEach(function(k){
+      var rx=S.comparisonResults[eye][k];
+      var ids=["s","c","a","e"].map(function(s){return $("r"+eye+"_"+k+"_"+s);});
+      if(!rx){ids.forEach(function(td){td.textContent="—";});return;}
+      ids[0].textContent=fmtP(q25(rx.sph));
+      ids[1].textContent=fmtP(q25(rx.cyl));
+      ids[2].textContent=Math.abs(rx.cyl)>=.25?Math.round(rx.axis)+"°":"—";
+      ids[3].textContent=fmtP(q25(rx.sph+rx.cyl/2));
+    });
   });
 }
 function renderEyeTabs(){
@@ -1546,7 +1662,7 @@ function renderEyeTabs(){
 }
 function setEye(e){
   resetAutoSequence();
-  S.eye=e; S.samples=[];
+  S.eye=e;clearMeasurementSamples();
   $("eyeR").classList.toggle("on",e==="R");
   $("eyeL").classList.toggle("on",e==="L");
   /* 가이드 원을 좌/우로 살짝 이동 */
@@ -1660,7 +1776,7 @@ async function shareTarget(){
 /* ---------- 데모 ---------- */
 function demo(){
   stopCam();
-  S.samples=[];
+  clearMeasurementSamples();
   var truth={sph:-2.00,cyl:-1.25,axis:30};
   for(var i=0;i<26;i++){
     var v=rxToVec(truth.sph,truth.cyl,truth.axis);
@@ -1668,6 +1784,7 @@ function demo(){
     v.J0+=(Math.random()-.5)*.10;
     v.J45+=(Math.random()-.5)*.10;
     S.samples.push(v);
+    ["A","B","C"].forEach(function(k){S.methodSamples[k].push(Object.assign({},v));});
   }
   renderLive(true);
   setBanner("데모 — 정답 -2.00 / -1.25 × 30°","ok");
@@ -1680,8 +1797,9 @@ $("eyeL").addEventListener("click",function(){setEye("L");});
 $("refBtn").addEventListener("click",startReference);
 $("saveBtn").addEventListener("click",function(){saveEye(false);});
 $("resetBtn").addEventListener("click",function(){
-  resetAutoSequence();
-  S.samples=[];S.results={R:null,L:null};S.autoSaveCooldownUntil=0;
+  clearMeasurementSamples(); S.results={R:null,L:null};
+  S.comparisonResults={R:{A:null,B:null,C:null},L:{A:null,B:null,C:null}};
+  S.autoSaveCooldownUntil=0;
   renderResults();renderEyeTabs();renderLive();
   setBanner(S.reference?"저장 결과가 삭제되었습니다 — 다시 측정해 주세요":"초기화했습니다","warn");
   toast("스캔과 우·좌안 저장 결과를 모두 삭제했습니다.");
